@@ -96,18 +96,20 @@ function rep(n, w) { return Array.from({ length: n }, () => w); }
     check('nhac manh + co hat -> Hát (khong phai Nhac)',
       aggregate(baiHat).label === 'singing', `${aggregate(baiHat).label} (${aggregate(baiHat).reason})`);
 
-    // Vua noi NHIEU vua co hat: neu "giong noi" xet truoc -> lot vao danh sach LAY.
-    // Day dung la ca nguoi dung muon LOAI (sound co giong hat thi khong dung duoc).
+    // Giong noi phu KIN clip (100% cua so) MA VAN co hat -> chinh nguoi do dang hat/rap,
+    // khong phai noi de len mot ban nhac co loi. Van LOAI.
+    // (Doi luat 2026-08-16 co mo duong cho "noi de len nhac co loi", nhung chi khi giong noi
+    //  co dut quang — xem muc 8c. O day noi phu kin nen giu luat cu.)
     const noiVaHat = rep(20, win({ 'Speech': 0.85, 'Singing': 0.5, 'Music': 0.8 }));
     const r2 = aggregate(noiVaHat);
-    check('noi 100% NHUNG co hat -> van la Hát', r2.label === 'singing', `${r2.label} (${r2.reason})`);
+    check('noi phu KIN clip ma van co hat -> van la Hát', r2.label === 'singing', `${r2.label} (${r2.reason})`);
     check('=> bi LOAI', r2.accept === false, String(r2.accept));
   }
 
   console.log('\n=== 5b. BO LOC "chi lay giong nguoi noi" — co accept dung/sai ===');
   {
     const { ACCEPT, LABEL_VI } = C;
-    check('du 5 nhan', Object.keys(LABEL_VI).length === 5, Object.keys(LABEL_VI).join(','));
+    check('du 6 nhan', Object.keys(LABEL_VI).length === 6, Object.keys(LABEL_VI).join(','));
     check('moi nhan deu co quyet dinh lay/loai',
       Object.keys(LABEL_VI).every(k => typeof ACCEPT[k] === 'boolean'), JSON.stringify(ACCEPT));
 
@@ -115,6 +117,8 @@ function rep(n, w) { return Array.from({ length: n }, () => w); }
       ['noi thuan',            { 'Speech': 0.9, 'Music': 0.02 },                 'voice',     true],
       ['noi + nhac nen',       { 'Speech': 0.7, 'Music': 0.6 },                 'voice_bgm', true],
       ['hat',                  { 'Singing': 0.6, 'Music': 0.9 },                 'singing',   false],
+      // Rap: giong nguoi phu KIN clip + co nhac + co hat -> van LOAI. Neu bo chan tren
+      // spTranBgmLoi thi rap se lot thanh "nhac nen CO LOI" va duoc LAY — sai y nguoi dung.
       ['rap (cung la LOAI)',   { 'Rapping': 0.6, 'Music': 0.9, 'Speech': 0.5 },  'singing',   false],
       ['nhac khong loi',       { 'Music': 0.95, 'Guitar': 0.6 },                 'music',     false],
       ['im lang',              { 'Silence': 0.9 },                               'unknown',   false],
@@ -131,9 +135,10 @@ function rep(n, w) { return Array.from({ length: n }, () => w); }
     // Nguoi noi tren mot BAI HAT (nhac nen co loi) — nghe thi van la "co nguoi noi", nhung
     // nguoi dung KHONG lay. Khong can luat rieng nao: hat xet truoc nen tu dong roi vao
     // nhan Hát. Test nay ghim dung tinh chat do.
+    // Giong noi phu kin 18/18 cua so -> coi la tu hat, LOAI.
     const noiTrenBaiHat = rep(18, win({ 'Speech': 0.75, 'Singing': 0.55, 'Music': 0.9, 'Pop music': 0.6 }));
     const r = aggregate(noiTrenBaiHat);
-    check('noi tren nhac CO LOI -> LOAI', r.accept === false, `${r.label} accept=${r.accept}`);
+    check('noi phu kin clip + hat -> LOAI', r.accept === false, `${r.label} accept=${r.accept}`);
 
     // Cung nguoi do, nhac nen KHONG loi -> LAY.
     const noiTrenNhacKhongLoi = rep(18, win({ 'Speech': 0.75, 'Music': 0.9, 'Guitar': 0.5 }));
@@ -186,9 +191,14 @@ function rep(n, w) { return Array.from({ length: n }, () => w); }
     const noi = win({ 'Speech': 0.8, 'Music': 0.6 });
     const noiCoHat = win({ 'Speech': 0.8, 'Music': 0.6, 'Singing': 0.05 });
 
+    // ⚠ DOI LUAT 2026-08-16 (theo yeu cau): "nhac nen co loi VAN LAY duoc neu khong dinh ban
+    // quyen, nhung phai ghi chu de tu kiem". Truoc do ca nay bi LOAI thang.
+    // O mau nay giong noi phu kin 19/19 cua so nen van roi vao Hát (nguoi do tu hat) — muon
+    // ra nhan moi thi phai co doan KHONG noi, xem muc 8c.
     const nenCoLoi = [...rep(2, noiCoHat), ...rep(17, noi)];   // 2/19 — do duoc tu mau that
     const rA = aggregate(nenCoLoi);
-    check('noi tren nhac nen CO LOI (2/19 cua so) -> LOAI', rA.accept === false, `${rA.label} (${rA.reason})`);
+    check('noi phu kin + nhac nen CO LOI -> van LOAI (nguoi do tu hat)',
+      rA.accept === false, `${rA.label} (${rA.reason})`);
 
     const nenKhongLoi = rep(19, noi);
     const rB = aggregate(nenKhongLoi);
@@ -299,7 +309,9 @@ function rep(n, w) { return Array.from({ length: n }, () => w); }
     const hatIt = rep(20, win({ 'Speech': 0.8, 'Music': 0.7 }));
     check('khong co hat -> LAY', aggregate(hatIt).accept === true, aggregate(hatIt).label);
     // Dung diem hat THAP (0.10) de chi thu duong TI LE, khong cham duong dinh sMaxSing.
-    const hoiHat = [...rep(2, win({ 'Singing': 0.10, 'Music': 0.8 })), ...rep(38, win({ 'Speech': 0.8, 'Music': 0.7 }))];
+    // KHONG cho nhac vao mau nay: co nhac thi no roi sang nhan "nhac nen CO LOI" (luat moi),
+    // ma o day dang thu rieng duong TI LE cua nguong hat.
+    const hoiHat = [...rep(2, win({ 'Singing': 0.10 })), ...rep(38, win({ 'Speech': 0.8 }))];
     check('hat 5% < fSing 6% -> van LAY', aggregate(hoiHat).accept === true, aggregate(hoiHat).label);
     check('ha fSing xuong 0.04 -> thanh LOAI',
       aggregate(hoiHat, { fSing: 0.04 }).label === 'singing', aggregate(hoiHat, { fSing: 0.04 }).label);

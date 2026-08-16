@@ -182,6 +182,10 @@ const DEFAULTS = {
   // Do lai tren 2 ban HAT THAT dung de hieu chinh: ban #1 co 4 cua so vuot, ban #2 co 2 —
   // ca hai deu >= 2 nen van bat duoc.
   minSingWin: 2,
+  // Tran ti le noi cho nhan "giong noi + nhac nen CO LOI" (xem cho dung no de biet vi sao).
+  // 0.85: duoi nguong nay la "co nguoi noi VA co doan khong noi" — dang noi de len nhac;
+  // tu 0.85 tro len la giong nguoi phu kin clip, ma van co tieng hat -> chinh nguoi do hat/rap.
+  spTranBgmLoi: 0.85,
   // Duong thu HAI de bat hat: chi can MOT cua so co diem hat that cao. Bat duoc ca clip chi
   // hat vai giay (ti le thap nhung ro rang la co hat) — dung y nguoi dung: sound co giong
   // hat thi khong dung duoc, du hat it.
@@ -215,6 +219,7 @@ const DEFAULTS = {
 const LABEL_VI = {
   voice: 'Giọng nói',
   voice_bgm: 'Giọng nói + nhạc nền',
+  voice_bgm_loi: 'Giọng nói + nhạc nền CÓ LỜI',
   singing: 'Hát',
   music: 'Nhạc',
   unknown: 'Không rõ',
@@ -224,6 +229,10 @@ const LABEL_VI = {
 const ACCEPT = {
   voice: true,
   voice_bgm: true,
+  // LAY duoc — nhung LUON kem ghi chu tu kiem ban quyen (xem ghiChuKhongChac).
+  // Nhac nen co loi rat de la ban nhac co ban quyen, ma may khong biet duoc dieu do:
+  // luat ban quyen chi doc co "original sound" hay khong, khong nghe ra bai hat nao.
+  voice_bgm_loi: true,
   singing: false,
   music: false,
   unknown: false,
@@ -348,7 +357,31 @@ function aggregate(windows, opt = {}) {
   // 11 cua so con lai hat = 0.000. Vay ma 1/12 = 8.3% > 6% -> ca clip bi goi la "Hát" va
   // LOAI OAN, du noi 92%. Ep thang bang SO DEM moi dung y da viet ra.
   const duCuaSoHat = si >= T.fSing && stats.singWindows >= T.minSingWin;
-  if (duCuaSoHat || siMax >= T.sMaxSing) {
+  const coHat = duCuaSoHat || siMax >= T.sMaxSing;
+  // NGUOI NOI TREN NHAC NEN CO LOI — tach RIENG khoi "Hát" (doi luat 2026-08-16).
+  //
+  // Truoc day moi thu co giong hat deu la "Hát" va LOAI het, ke ca khi nguoi ta dang NOI ma
+  // ban nhac phia sau co loi. Yeu cau moi: loai do VAN LAY DUOC neu khong dinh ban quyen —
+  // nhung phai ghi chu de nguoi dung tu kiem ban quyen.
+  //
+  // Phan biet the nao: dung dung bo dieu kien cua voice_bgm (noi du manh VA co nhac du day),
+  // chi khac la co them giong hat. Bat buoc phai co CA HAI:
+  //   • sp >= fSpeech  -> that su co nguoi NOI, khong phai chi hat;
+  //   • mu >= fMusic   -> giong hat den tu BAN NHAC phia sau, khong phai chinh nguoi do hat.
+  // Thieu ve nhac (vd sound "обоюдно" nhac slow: noi 67%, hat 17%, NHAC 0%) thi van la Hát —
+  // vi khong co nhac nen thi "hat" chi co the la chinh nguoi do hat.
+  // ⚠ CHAN TREN cua ti le noi. Neu GAN NHU MOI cua so deu co giong noi MA VAN nghe ra tieng
+  // hat, thi kha nang cao chinh nguoi do dang hat/rap chu khong phai noi de len mot ban nhac
+  // co loi — vi mot bai hat that o phia sau luon co doan dao nhac khong loi xen vao.
+  // Do duoc: ghep giong noi len bai hat that cho noi 63% (nhac nho) / 21% (vua) / 0% (to);
+  // ca that @LAIA cho 56%. Con rap tren beat thi giong nguoi phu KHAP clip -> ~100%.
+  // Vuot nguong nay thi giu luat CU (Hát -> LOAI) — chon phia chat hon khi khong phan biet duoc.
+  const noiKhapClip = sp >= T.spTranBgmLoi;
+  if (coHat && sp >= T.fSpeech && mu >= T.fMusic && !noiKhapClip) {
+    label = 'voice_bgm_loi';
+    margin = Math.min(sp - T.fSpeech, mu - T.fMusic);
+    strength = (stats.speechMean + stats.musicMean) / 2;
+  } else if (coHat) {
     label = 'singing';
     // Lay khoang cach cua duong nao vuot xa hon: mot clip chi hat vai giay thi ti le thap
     // nhung diem dinh rat cao, va nguoc lai — cham diem theo duong yeu se ha oan tin cay.
@@ -478,6 +511,31 @@ function ghiChuKhongChac(kq, meta = {}, opt = {}) {
   const sp = s.speechFrac || 0, mu = s.musicFrac || 0, si = s.singFrac || 0;
   const cs = s.usableWindows || 0, cw = s.singWindows || 0, smax = s.singMax || 0;
 
+  // Nhan "giong noi + nhac nen CO LOI" thi LUON phai kem loi nhac kiem ban quyen — day
+  // khong phai "may khong chac", ma la "may khong the biet": no chi doc duoc co dau
+  // original-sound hay khong, chu khong nhan ra ban nhac nao dang phat.
+  // ⚠ PHAI ghi chu cho CA HAI nhan co nhac nen, khong chi nhan "CÓ LỜI".
+  //
+  // Do that 2026-08-16 — ghep giong noi that len BAI HAT that (dung doan co tieng hat) o 3 muc:
+  //     nhac nho : noi 63% · HAT 0%  · nhac  89%  -> "Giọng nói + nhạc nền"  (khong biet co loi!)
+  //     nhac vua : noi 21% · hat 11% · nhac 100%  -> "Hát"
+  //     nhac to  : noi  0% · hat 16% · nhac 100%  -> "Hát"
+  // Doc theo cot HAT thi thay cai bay: NHAC NHO du de giong noi noi len thi may KHONG NGHE RA
+  // tieng hat trong nhac (dung 0%); NHAC TO du de nghe ra tieng hat thi giong noi da bi nuot.
+  // Hai dieu kien cua nhan voice_bgm_loi (noi manh VA co hat) gan nhu khong bao gio dung cung
+  // luc — tren 46 sound that chi 1 cai cham toi.
+  //
+  // Nghia la: may KHONG PHAN BIET DUOC nhac nen co loi hay khong loi. Nen thay vi im lang cho
+  // qua, moi dong CO NHAC NEN deu phai mang loi nhac tu kiem ban quyen.
+  if (kq.label === 'voice_bgm_loi') {
+    g.push('🔒 nghe rõ giọng hát trong nhạc nền — tự kiểm bản quyền trước khi dùng');
+  } else if (kq.label === 'voice_bgm') {
+    g.push('🔒 có nhạc nền — máy KHÔNG phân biệt được nhạc có lời hay không lời, tự kiểm bản quyền');
+  } else if (kq.label === 'singing' && sp >= T.spTranBgmLoi && mu >= T.fMusic) {
+    // Giong noi phu kin clip + co nhac + co hat: coi la chinh nguoi do hat/rap nen LOAI,
+    // nhung day dung la ranh gioi voi "noi de len bai hat" -> phai bao de nguoi dung tu quyet.
+    g.push('có thể là bạn NÓI đè lên bài hát (đang bị coi là tự hát/rap) — nghe lại rồi tự chọn');
+  }
   // ĐIỀU NGUOI DUNG SO NHAT: nhac to at giong -> bi cham la Nhac/Hat va LOAI, trong khi
   // that ra la GIONG NOI BINH THUONG ghep nhac. Con giong noi song sot toi 15% cua so thi
   // van con kha nang do.

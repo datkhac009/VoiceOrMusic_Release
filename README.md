@@ -1,6 +1,6 @@
 # VoiceOrMusic — lọc sound TikTok theo giọng người
 
-**Phiên bản hiện tại: 0.6.4** — xem [CHANGELOG.md](CHANGELOG.md) để biết bản nào có gì.
+**Phiên bản hiện tại: 0.7.0** — xem [CHANGELOG.md](CHANGELOG.md) để biết bản nào có gì.
 Số phiên bản hiện ở 4 chỗ: thanh tiêu đề cửa sổ, huy hiệu cạnh tên app trong giao diện, đầu báo
 cáo dòng lệnh, và đầu trang bộ kiểm chứng. File `.exe` cũng mang đúng số đó trong Properties.
 
@@ -12,13 +12,18 @@ trên AudioSet) rồi trả về 1 trong 5 nhãn kèm quyết định **LẤY / 
 |---|---|---|
 | ✅ **LẤY** | 🗣 **Giọng nói** | người nói, không có nhạc |
 | ✅ **LẤY** | 🎙 **Giọng nói + nhạc nền** | người nói trên nhạc nền **không lời** |
-| ❌ LOẠI | 🎤 **Hát** | hát, rap, hoặc nhạc nền **có lời** |
+| ✅ **LẤY** | 🎙 **Giọng nói + nhạc nền CÓ LỜI** | người **nói**, nhạc nền có giọng hát — lấy được nhưng **tự kiểm bản quyền** |
+| ❌ LOẠI | 🎤 **Hát** | chính người đó hát hoặc rap |
 | ❌ LOẠI | 🎵 **Nhạc** | không nghe ra giọng người |
 | ❌ LOẠI | ❓ **Không rõ** | quá ngắn, gần như im lặng, hoặc không nhóm nào đủ mạnh |
 
-"Nhạc nền không lời" **không cần luật riêng**: hát được xét trước tiên, nên một clip đã rơi vào
-*Giọng nói + nhạc nền* thì chắc chắn không có giọng hát nào vượt ngưỡng — kể cả giọng hát nằm
-trong bản nhạc nền.
+⚠ **Máy KHÔNG phân biệt được nhạc nền có lời hay không lời.** Đo thật (ghép giọng nói lên bài
+hát thật ở 3 mức): nhạc nhỏ đủ để giọng nói nổi lên thì điểm hát = **0%**; nhạc to đủ để nghe ra
+tiếng hát thì giọng nói đã bị nuốt. Nên **mọi dòng có nhạc nền** đều mang lời nhắc tự kiểm bản
+quyền — xem mục *Cần kiểm tay*.
+
+**Rap vẫn bị LOẠI.** Phân biệt bằng: giọng nói phủ gần kín clip mà vẫn có tiếng hát → chính
+người đó hát/rap; giọng nói có đứt quãng → đang nói đè lên một bản nhạc.
 
 ## Dùng — 2 cách
 

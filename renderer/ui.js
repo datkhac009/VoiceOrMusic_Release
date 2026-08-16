@@ -6,7 +6,7 @@
 'use strict';
 
 const $ = (id) => document.getElementById(id);
-const ICON = { voice: '🗣', voice_bgm: '🎙', singing: '🎤', music: '🎵', unknown: '❓' };
+const ICON = { voice: '🗣', voice_bgm: '🎙', voice_bgm_loi: '🎙', singing: '🎤', music: '🎵', unknown: '❓' };
 
 let ketQua = [];        // moi dong main gui ve
 let dangChay = false;

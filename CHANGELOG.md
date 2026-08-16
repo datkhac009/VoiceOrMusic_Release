@@ -12,6 +12,48 @@ bắt đầu và lúc xong.
 
 ---
 
+## 0.7.0 — 2026-08-16
+
+**Đổi luật gốc: nhạc nền CÓ LỜI vẫn lấy được — nhưng luôn kèm lời nhắc kiểm bản quyền**
+
+Trước đây mọi thứ có giọng hát đều bị LOẠI thẳng. Nay theo yêu cầu: loại đó **vẫn LẤY được nếu
+không dính bản quyền**, kèm ghi chú ngay dưới nhãn để bạn tự kiểm.
+
+- Thêm nhãn thứ 6: **🎙 Giọng nói + nhạc nền CÓ LỜI** → LẤY, luôn kèm
+  `🔒 nghe rõ giọng hát trong nhạc nền — tự kiểm bản quyền trước khi dùng`.
+- **Rap vẫn bị LOẠI** như bạn dặn từ đầu. Cách tách: khi giọng nói phủ **gần kín clip** mà vẫn
+  nghe ra tiếng hát thì đó là chính người đó hát/rap, không phải nói đè lên nhạc — vì một bài
+  hát thật ở phía sau luôn có đoạn dạo nhạc xen vào. Ngưỡng 85%, đo được: ghép giọng nói lên
+  bài hát thật cho 63% / 21% / 0%; ca thật @LAIA cho 56%; rap trên beat cho ~100%.
+
+**Phát hiện quan trọng hơn cả luật trên: máy KHÔNG phân biệt được nhạc nền có lời hay không lời**
+
+Dựng mẫu kiểm chứng bằng cách ghép **giọng nói thật** lên **bài hát thật** (đúng đoạn có tiếng
+hát) ở 3 mức to nhỏ:
+
+| mẫu | nói | **hát** | nhạc | máy chấm |
+|---|---|---|---|---|
+| nói + bài hát **nhỏ** | 63% | **0%** | 89% | Giọng nói + nhạc nền → LẤY |
+| nói + bài hát **vừa** | 21% | 11% | 100% | Hát → LOẠI |
+| nói + bài hát **to** | 0% | 16% | 100% | Hát → LOẠI |
+| nói + nhạc **không lời** | 93% | 0% | 47% | Giọng nói + nhạc nền → LẤY |
+
+Đọc cột "hát" là thấy bẫy: **nhạc nhỏ đủ để giọng nói nổi lên thì máy không nghe ra tiếng hát
+trong nhạc (đúng 0%); nhạc to đủ để nghe ra tiếng hát thì giọng nói đã bị nuốt.** Hai điều kiện
+của nhãn mới gần như không bao giờ đúng cùng lúc — trên 46 sound thật chỉ **1 cái** chạm tới.
+
+Hệ quả nguy hiểm: dòng đầu bảng là **nói đè lên bài hát có lời, được LẤY mà không cảnh báo gì**.
+
+→ Nên **mọi dòng có nhạc nền** đều mang lời nhắc
+`🔒 có nhạc nền — máy KHÔNG phân biệt được nhạc có lời hay không lời, tự kiểm bản quyền`.
+Dòng chỉ có giọng nói thuần thì không bị làm phiền.
+
+**Một bài học về cách đo:** lần dựng mẫu đầu tiên tôi cắt 14 giây **đầu** bài hát → trúng đoạn
+dạo nhạc không lời, cả thí nghiệm cho hát 0% và vô nghĩa. Bài đó chỉ có **6/62 cửa sổ** có tiếng
+hát (giây 40–58). Không được giả định "bài hát thì chỗ nào cũng có tiếng hát".
+
+---
+
 ## 0.6.4 — 2026-08-14
 
 **"⚠ Cần kiểm tay" — máy nói thẳng chỗ nó không chắc, cả bên LẤY lẫn bên LOẠI**

@@ -577,7 +577,7 @@ button{padding:9px 16px;border-radius:7px;border:1px solid #6ea8ff;background:#6
 </style></head><body>
 <h1>Bộ kiểm chứng VoiceOrMusic ${PHIEN_BAN()}</h1>
 <div class="mo">Bấm Play nghe từng sound, đánh dấu máy chấm <b>Đúng</b> hay <b>Sai</b>.
-Sai thì ghi đúng ra phải là gì (Giọng nói / Giọng nói + nhạc nền / Hát / Nhạc).
+Sai thì ghi đúng ra phải là gì (Giọng nói / Giọng nói + nhạc nền / + nhạc nền có lời / Hát / Nhạc).
 Xong bấm nút dưới cùng rồi gửi lại phần chữ đó — đó là căn cứ để chỉnh ngưỡng.</div>
 <table>
 <thead><tr><th>#</th><th>Tình trạng</th><th>Máy chấm</th><th>Nói·Hát·Nhạc</th><th>Nghe</th><th>Sound</th><th>Bạn chấm</th></tr></thead>
@@ -619,7 +619,7 @@ function gom(){
 }
 
 // ════════════════════════ in ket qua ════════════════════════
-const ICON = { voice: '🗣 ', voice_bgm: '🎙 ', singing: '🎤 ', music: '🎵 ', unknown: '❓' };
+const ICON = { voice: '🗣 ', voice_bgm: '🎙 ', voice_bgm_loi: '🎙 ', singing: '🎤 ', music: '🎵 ', unknown: '❓' };
 
 function dungBaoCao(rows, opt) {
   const out = [];
@@ -726,6 +726,9 @@ Cach dung:
 Bo loc "chi lay giong nguoi noi":
   ✅ LAY   🗣  Giọng nói              nguoi noi, khong nhac
   ✅ LAY   🎙  Giọng nói + nhạc nền   nguoi noi tren nhac nen KHONG LOI
+  ✅ LAY   🎙  Giọng nói + nhạc nền CÓ LỜI
+                                     nguoi NOI, nhac nen co giong hat -> LAY duoc nhung
+                                     PHAI TU KIEM BAN QUYEN (may khong nhan ra bai hat)
   ❌ LOAI  🎤 Hát                    hat / rap / nhac co loi
   ❌ LOAI  🎵 Nhạc                   khong co giong nguoi
   ❌ LOAI  ❓ Không rõ                qua ngan, im lang, hoac khong chac`;
