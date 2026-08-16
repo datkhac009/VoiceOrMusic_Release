@@ -1,0 +1,56 @@
+{
+  "name": "voice-or-music",
+  "version": "0.6.4",
+  "private": true,
+  "description": "Loc sound TikTok theo giong nguoi noi (YAMNet)",
+  "main": "main.js",
+  "scripts": {
+    "start": "set \"ELECTRON_RUN_AS_NODE=\" && electron .",
+    "test": "node test/cli-args.test.js && node test/soundlink.test.js && node test/classify.test.js",
+    "build": "electron-builder --win portable --x64",
+    "test:gui": "node test/gui-smoke.cjs"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-audio": "^1.0.1"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.hunfi.voice-or-music",
+    "productName": "VoiceOrMusic",
+    "directories": {
+      "output": "../VoiceOrMusic_Release"
+    },
+    "asarUnpack": [
+      "node_modules/@mediapipe/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "renderer/icon.png",
+      "artifactName": "VoiceOrMusic.exe"
+    },
+    "portable": {
+      "artifactName": "VoiceOrMusic.exe"
+    },
+    "files": [
+      "**/*",
+      "!test/**",
+      "!*.md",
+      "!.gitignore",
+      "!.npmrc",
+      "!build.bat",
+      "!check.cmd",
+      "!run.cjs",
+      "!node_modules/.cache/**"
+    ]
+  }
+}

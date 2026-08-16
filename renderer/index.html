@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>VoiceOrMusic — lọc sound TikTok theo giọng người</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   BANG MAU
+   • 3 mau cho noi/hat/nhac la bang DANH MUC (categorical): ba thu KHAC LOAI
+     nhau, khong phai ba muc do cua cung mot thu. Da chay script kiem mau tren
+     nen toi — dat ca 6 phep kiem: dai do sang, san bao hoa, tach mau cho nguoi
+     mu mau (ΔE 9.4 deutan), tach mau thuong (26.5), tuong phan >= 3:1.
+   • Mau TRANG THAI (lay/loai/loi) la bo RIENG, khong bao gio dung lam mau du
+     lieu — de mot mau trang thai khong bi nham thanh mot chuoi so lieu. Va no
+     luon di kem BIEU TUONG + CHU, khong de mau tu noi mot minh.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* nen — 3 tang de tao chieu sau */
+  --nen-0: #0e1015;      /* nen sau nhat */
+  --nen-1: #151922;      /* the / khoi noi len */
+  --nen-2: #1c212c;      /* o nhap, dong khi ro chuot */
+  --vien:  #252b38;
+  --vien-sang: #323a4b;
+
+  --chu:     #e8eaf0;
+  --chu-2:   #98a0b3;
+  --chu-mo:  #6b7385;
+
+  --nhan:    #3987e5;    /* mau thuong hieu = danh muc so 1 */
+  --nhan-2:  #5b9cea;
+
+  --tot:  #22c55e;
+  --xau:  #ef4444;
+  --canh: #fab219;
+
+  /* danh muc cho 3 thanh do */
+  --noi:  #3987e5;
+  --hat:  #d95926;
+  --nhac: #199e70;
+
+  --bo-goc: 10px;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; display: flex; flex-direction: column;
+  background: var(--nen-0); color: var(--chu);
+  font: 13.5px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a3140; border-radius: 99px; border: 3px solid var(--nen-0); }
+::-webkit-scrollbar-thumb:hover { background: #3a4356; }
+
+/* ── Dau trang ────────────────────────────────────────────────────────── */
+header {
+  padding: 15px 22px 13px;
+  background: linear-gradient(180deg, #151a24 0%, var(--nen-0) 100%);
+  border-bottom: 1px solid var(--vien);
+}
+h1 { margin: 0; font-size: 15.5px; font-weight: 650; letter-spacing: -.01em;
+     display: flex; align-items: center; gap: 9px; }
+.pb {
+  font-size: 11px; font-weight: 600; color: var(--nhan-2);
+  background: color-mix(in oklab, var(--nhan) 16%, transparent);
+  border: 1px solid color-mix(in oklab, var(--nhan) 32%, transparent);
+  border-radius: 99px; padding: 1.5px 8px; letter-spacing: .02em;
+}
+.phu { color: var(--chu-2); font-size: 12px; margin-top: 4px; }
+.phu b { color: var(--chu); font-weight: 600; }
+
+/* ── Khoi nhap ────────────────────────────────────────────────────────── */
+.khoi-nhap { padding: 14px 22px 13px; border-bottom: 1px solid var(--vien); }
+textarea {
+  width: 100%; height: 92px; resize: vertical; padding: 11px 13px;
+  background: var(--nen-1); color: var(--chu);
+  border: 1px solid var(--vien); border-radius: var(--bo-goc);
+  font: 12px/1.6 "Cascadia Mono", Consolas, monospace;
+  transition: border-color .15s, box-shadow .15s;
+}
+textarea::placeholder { color: var(--chu-mo); }
+textarea:focus {
+  outline: none; border-color: var(--nhan);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--nhan) 18%, transparent);
+}
+textarea:disabled { opacity: .55; }
+
+/* Hai hang thay vi mot hang dai: hang tren la VIEC DANG LAM (chay/dung + tien do),
+   hang duoi la CAI DAT (it khi dung toi). Nhet het vao mot hang thi no tu xuong dong
+   lung tung va nhin nhu mot dong nut khong co thu bac. */
+.hang { display: flex; gap: 10px; align-items: center; margin-top: 11px; }
+.hang-2 { display: flex; gap: 8px; align-items: center; margin-top: 9px; flex-wrap: wrap; }
+
+/* Thanh tien do: khoi rieng co vien, co so %, va co van chay khi dang lam viec. */
+.khoi-td {
+  flex: 1; display: flex; align-items: center; gap: 10px; min-width: 220px;
+  padding: 6px 12px; background: var(--nen-1);
+  border: 1px solid var(--vien); border-radius: 9px;
+}
+.thanh { flex: 1; height: 7px; background: var(--nen-2); border-radius: 99px; overflow: hidden; }
+.thanh > i {
+  display: block; height: 100%; width: 0; border-radius: 99px;
+  background: linear-gradient(90deg, var(--nhan), #6bb0f5);
+  transition: width .3s ease, background .3s;
+}
+/* Van cheo chay — chi khi DANG chay, de biet no khong dung hinh */
+body.dang-chay .thanh > i {
+  background-image: linear-gradient(90deg, var(--nhan), #6bb0f5),
+    repeating-linear-gradient(115deg, rgba(255,255,255,.22) 0 9px, transparent 9px 18px);
+  background-blend-mode: overlay;
+  animation: chay 0.8s linear infinite;
+}
+@keyframes chay { to { background-position: 36px 0, 36px 0; } }
+body.xong-roi .thanh > i { background: linear-gradient(90deg, var(--tot), #4ade80); }
+#phanTram { font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--chu-2);
+            min-width: 34px; text-align: right; font-weight: 600; }
+#trangThai { color: var(--chu-2); font-size: 11.5px; white-space: nowrap;
+             overflow: hidden; text-overflow: ellipsis; max-width: 340px; }
+
+/* O cai dat dang huy hieu bam duoc — o vuong that van con (test va tro giup dung no),
+   chi la an di va ve lai bang CSS. */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 5px 11px; border-radius: 99px; font-size: 11.5px; color: var(--chu-2);
+  background: var(--nen-1); border: 1px solid var(--vien);
+  transition: background .14s, border-color .14s, color .14s;
+}
+.chip:hover { border-color: var(--vien-sang); color: var(--chu); }
+/* CHI an o TICK (de ve lai bang o vuong .dau), TUYET DOI khong an moi input:
+   trong chip "giay dau" con co o nhap SO — an nham la nguoi dung khong con thay o
+   nhap dau ca, chi con chu "giay dau" tro troi khong hieu de lam gi. Da hong that. */
+.chip input[type=checkbox] { position: absolute; opacity: 0; width: 0; height: 0; }
+.chip .dau { width: 13px; height: 13px; border-radius: 4px; border: 1.5px solid var(--vien-sang);
+             display: inline-flex; align-items: center; justify-content: center;
+             font-size: 9px; color: transparent; flex: 0 0 auto; }
+.chip:has(input[type=checkbox]:checked) { color: var(--chu); border-color: color-mix(in oklab, var(--nhan) 45%, transparent);
+                           background: color-mix(in oklab, var(--nhan) 12%, transparent); }
+.chip:has(input[type=checkbox]:checked) .dau { background: var(--nhan); border-color: var(--nhan); color: #06101f; }
+.chip-giay { gap: 7px; cursor: default; }
+.chip-giay input[type=number] {
+  width: 54px; padding: 3px 7px; font-size: 11.5px; text-align: center;
+  background: var(--nen-2); border-color: var(--vien-sang); color: var(--chu); font-weight: 600;
+}
+
+button {
+  padding: 8px 15px; border-radius: 8px; border: 1px solid var(--vien-sang);
+  background: var(--nen-2); color: var(--chu); font-size: 12.5px; font-weight: 500;
+  cursor: pointer; transition: background .14s, border-color .14s, transform .06s;
+  font-family: inherit;
+}
+button:hover:not(:disabled) { background: #232a37; border-color: #45506a; }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { opacity: .38; cursor: default; }
+button.chinh {
+  background: linear-gradient(180deg, var(--nhan-2), var(--nhan));
+  border-color: transparent; color: #06101f; font-weight: 650;
+  box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 2px 10px -4px var(--nhan);
+}
+button.chinh:hover:not(:disabled) { filter: brightness(1.08); }
+
+label { color: var(--chu-2); font-size: 12px; display: inline-flex; align-items: center;
+        gap: 6px; cursor: pointer; }
+input[type=checkbox] { accent-color: var(--nhan); width: 14px; height: 14px; cursor: pointer; }
+input[type=number] {
+  width: 58px; padding: 6px 8px; background: var(--nen-1); color: var(--chu);
+  border: 1px solid var(--vien); border-radius: 7px; font-family: inherit;
+  font-variant-numeric: tabular-nums;
+}
+input[type=number]:focus { outline: none; border-color: var(--nhan); }
+
+.thanh { flex: 1; min-width: 130px; height: 5px; background: var(--nen-2);
+         border-radius: 99px; overflow: hidden; }
+.thanh > i { display: block; height: 100%; width: 0; border-radius: 99px;
+  background: linear-gradient(90deg, var(--nhan), #6bb0f5); transition: width .25s ease; }
+
+/* ── Hang the so lieu ─────────────────────────────────────────────────── */
+.tomtat { display: flex; gap: 10px; padding: 13px 22px; border-bottom: 1px solid var(--vien); }
+.the-so {
+  min-width: 116px; padding: 9px 14px 10px;
+  background: var(--nen-1); border: 1px solid var(--vien); border-radius: var(--bo-goc);
+}
+.the-so .nhan-the { font-size: 11px; color: var(--chu-2); display: flex; align-items: center; gap: 5px; }
+/* So lon dung chu so TY LE (khong tabular): tabular lam so lon nhin long leo. */
+.the-so b { display: block; font-size: 25px; font-weight: 650; line-height: 1.15; margin-top: 1px; }
+.o-lay b { color: var(--tot); } .o-loai b { color: var(--xau); } .o-loi b { color: var(--canh); }
+.o-lay { border-color: color-mix(in oklab, var(--tot) 28%, var(--vien)); }
+.o-kiem b { color: var(--canh); }
+.o-kiem { border-color: color-mix(in oklab, var(--canh) 30%, var(--vien)); }
+
+/* ── "Khong chac — nen kiem tay" ────────────────────────────────────────
+   Dat ngay DUOI NHAN, vi cau hoi cua nguoi doc luon la "nhan nay tin duoc khong?".
+   Dung mau CANH BAO chu khong dung mau Lay/Loai: no khong phai mot ket qua thu ba,
+   ma la loi nhac ve DO TIN CAY cua ket qua da co. */
+.kiem-tay { margin-top: 4px; font-size: 10.5px; color: var(--canh); line-height: 1.4;
+            background: color-mix(in oklab, var(--canh) 11%, transparent);
+            border: 1px solid color-mix(in oklab, var(--canh) 30%, transparent);
+            border-radius: 6px; padding: 3px 7px; }
+.kiem-tay b { display: block; font-weight: 650; }
+.kiem-tay i { font-style: normal; display: block; color: var(--chu-2); }
+
+/* ── Bang ─────────────────────────────────────────────────────────────── */
+.bang-boc { flex: 1; overflow: auto; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12.5px; }
+th {
+  position: sticky; top: 0; z-index: 2; background: #12161e; text-align: left;
+  padding: 9px 12px; border-bottom: 1px solid var(--vien);
+  font-weight: 600; font-size: 11px; color: var(--chu-2);
+  text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
+}
+td { padding: 11px 12px; border-bottom: 1px solid #1c212c; vertical-align: top; }
+tbody tr { transition: background .12s; }
+tbody tr:hover td { background: #171c26; }
+tbody tr.chon td { background: #1a2130; }
+tbody tr.chon td:first-child { box-shadow: inset 3px 0 0 var(--nhan); }
+
+/* Huy hieu ket qua — mau + BIEU TUONG + CHU */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  padding: 3px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 650;
+}
+.pill.lay  { color: var(--tot);  background: color-mix(in oklab, var(--tot) 13%, transparent);
+             border: 1px solid color-mix(in oklab, var(--tot) 32%, transparent); }
+.pill.loai { color: var(--xau);  background: color-mix(in oklab, var(--xau) 13%, transparent);
+             border: 1px solid color-mix(in oklab, var(--xau) 32%, transparent); }
+.pill.loi  { color: var(--canh); background: color-mix(in oklab, var(--canh) 13%, transparent);
+             border: 1px solid color-mix(in oklab, var(--canh) 32%, transparent); }
+
+.nhan-chinh { font-weight: 550; }
+.co-nho { display: flex; align-items: center; gap: 4px; font-size: 10.5px;
+          color: var(--canh); margin-top: 3px; }
+.co-nho.tay { color: var(--nhan-2); }
+
+.so { font-variant-numeric: tabular-nums; color: var(--chu-2); }
+.tincay { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* BA THANH DO RIENG — KHONG xep chong.
+   Ly do: model da nhan, "noi 100% · nhac 46%" la binh thuong — ba so KHONG cong
+   lai bang 100. Xep chong se ngu y sai rang chung chia nhau mot tong. */
+.do-hang { display: grid; grid-template-columns: 26px 1fr 32px; gap: 3px 6px; align-items: center; }
+.do-ten { font-size: 10px; color: var(--chu-mo); }
+.do-ray { height: 5px; border-radius: 99px; }
+.do-ray > i { display: block; height: 100%; border-radius: 99px; }
+.do-so { font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--chu-2); text-align: right; }
+.r-noi  { background: color-mix(in oklab, var(--noi)  28%, transparent); }
+.r-noi  > i { background: var(--noi); }
+.r-hat  { background: color-mix(in oklab, var(--hat)  28%, transparent); }
+.r-hat  > i { background: var(--hat); }
+.r-nhac { background: color-mix(in oklab, var(--nhac) 28%, transparent); }
+.r-nhac > i { background: var(--nhac); }
+
+.ten { font-size: 12.5px; }
+.tacgia { color: var(--chu-2); }
+.lnk { color: #5b9cea; font-size: 10.5px; font-family: "Cascadia Mono", Consolas, monospace;
+       word-break: break-all; opacity: .8; }
+/* Caption cua video — chu nguoi dang tu viet. Day thuong la manh thong tin RO NHAT ve
+   "clip nay cat tu dau", nen de ngay trong bang chu khong bat mo panel moi thay. */
+.cap { color: var(--chu-2); font-size: 11px; margin: 2px 0 1px; line-height: 1.35;
+       max-width: 44ch; }
+/* ANH KHUNG HINH ngay trong bang.
+   ⚠ Day KHONG phai trang tri. Da do het cac cach cho may tu nhan ra clip phong van:
+   am thanh (Applause = 0.000 tren 14 clip that), chu (caption bat 1/14), nhin hinh
+   (dem nguoi: bat 6/13 nhung loai oan 4/29; dem mat: 0/13). Khong cach nao du tot.
+   Nhung MAT NGUOI thi nhin mot cai la ra ngay — nen viec dung nhat la dua anh len tan
+   bang de nguoi dung luot het danh sach bang mat, thay vi mo tung dong. */
+.o-sound { display: flex; gap: 9px; align-items: flex-start; }
+.o-chu { min-width: 0; flex: 1; }
+.khung { width: 44px; height: 58px; object-fit: cover; border-radius: 5px; flex: none;
+         background: var(--nen-2); border: 1px solid var(--vien); }
+.khung.trong { display: flex; align-items: center; justify-content: center;
+               color: var(--chu-mo); font-size: 15px; }
+.tt { font-weight: 700; font-size: 19px; font-variant-numeric: tabular-nums; text-align: center; }
+.tt.mot { color: var(--tot); } .tt.khong { color: var(--xau); }
+
+.trong { padding: 56px 20px; text-align: center; color: var(--chu-mo); }
+.trong .to { font-size: 30px; display: block; margin-bottom: 8px; opacity: .5; }
+
+footer {
+  padding: 11px 22px; border-top: 1px solid var(--vien);
+  display: flex; gap: 9px; align-items: center; background: var(--nen-0);
+}
+.chugiai { color: var(--chu-mo); font-size: 10.5px; margin-left: auto;
+           text-align: right; line-height: 1.75; }
+
+/* ── Mini browser ─────────────────────────────────────────────────────── */
+#manDem { position: fixed; inset: 0; background: rgba(6,8,12,.6); backdrop-filter: blur(3px);
+          display: none; z-index: 9; }
+#panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 468px; z-index: 10;
+  background: var(--nen-1); border-left: 1px solid var(--vien);
+  display: none; flex-direction: column; box-shadow: -18px 0 44px -24px rgba(0,0,0,.9);
+}
+#panel.mo, #manDem.mo { display: flex; }
+#panel.mo { animation: truot .18s ease-out; }
+@keyframes truot { from { transform: translateX(22px); opacity: .4; } to { transform: none; opacity: 1; } }
+.p-dau { padding: 13px 16px; border-bottom: 1px solid var(--vien); display: flex;
+         align-items: center; gap: 8px; }
+.p-dau b { font-size: 13.5px; font-weight: 600; overflow: hidden;
+           text-overflow: ellipsis; white-space: nowrap; }
+.p-than { flex: 1; overflow: auto; padding: 14px 16px; }
+.p-than iframe { width: 100%; height: 560px; border: 0; border-radius: var(--bo-goc); background: #000; }
+.tt-hang { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.the { background: var(--nen-2); border: 1px solid var(--vien); border-radius: 7px;
+       padding: 3px 9px; font-size: 11px; color: var(--chu-2); }
+.the.xanh { color: var(--tot); border-color: color-mix(in oklab, var(--tot) 32%, transparent);
+            background: color-mix(in oklab, var(--tot) 11%, transparent); }
+.the.cam  { color: var(--canh); border-color: color-mix(in oklab, var(--canh) 32%, transparent);
+            background: color-mix(in oklab, var(--canh) 11%, transparent); }
+.the.do   { color: var(--xau); border-color: color-mix(in oklab, var(--xau) 32%, transparent);
+            background: color-mix(in oklab, var(--xau) 11%, transparent); }
+.nutX { background: none; border: 0; color: var(--chu-2); font-size: 17px; cursor: pointer; padding: 2px 6px; }
+.nutX:hover { color: var(--chu); background: var(--nen-2); }
+.tra-cuu { display: flex; gap: 6px; align-items: center; margin-bottom: 9px; flex-wrap: wrap; }
+.tra-cuu > span { color: var(--chu-mo); font-size: 11px; }
+.tra-cuu button { padding: 5px 10px; font-size: 11.5px; }
+.goiy { color: var(--chu-mo); font-size: 10.5px; line-height: 1.6; margin-bottom: 11px;
+        padding: 8px 10px; background: var(--nen-0); border-radius: 8px; border: 1px solid var(--vien); }
+.goiy b { color: var(--canh); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>VoiceOrMusic <span id="phienBan" class="pb">…</span></h1>
+  <div class="phu">Chỉ giữ sound có <b>người nói</b> (kể cả có nhạc nền không lời).
+    Loại: hát, rap, nhạc, nhạc nền có lời, voice phim/hoạt hình.</div>
+</header>
+
+<div class="khoi-nhap">
+  <textarea id="oLink" spellcheck="false" placeholder="Dán link sound TikTok vào đây, mỗi dòng một link.&#10;https://www.tiktok.com/music/original-sound-7411103147315349520&#10;7411103147315349520&#10;https://www.tiktok.com/@user/video/7626014774236663071"></textarea>
+  <div class="hang">
+    <button id="nutChay" class="chinh">Kiểm tra</button>
+    <button id="nutDung" disabled>Dừng</button>
+    <div class="khoi-td">
+      <div class="thanh"><i id="thanhTienDo"></i></div>
+      <span id="phanTram">0%</span>
+      <span id="trangThai">Sẵn sàng</span>
+    </div>
+  </div>
+  <div class="hang-2">
+    <label class="chip chip-giay" title="Sound TikTok thường 15–60 giây, để 120 là phân tích trọn bài">
+      ⏱ <input type="number" id="oGiay" value="120" min="3" max="300"> giây đầu
+    </label>
+    <label class="chip"><input type="checkbox" id="oChiLay"><span class="dau">✓</span> Chỉ hiện LẤY</label>
+    <label class="chip" title="TikTok đánh dấu sound không phải &quot;original sound&quot; = nhạc catalog có bản quyền">
+      <input type="checkbox" id="oBanQuyen" checked><span class="dau">✓</span> 🔒 Loại nhạc có bản quyền</label>
+    <label class="chip" title="Nhận ra qua hashtag của video và bio tài khoản (#anime, #phim, #cartoon, #interview...)">
+      <input type="checkbox" id="oPhim" checked><span class="dau">✓</span> 🎬 Loại voice phim/hoạt hình</label>
+  </div>
+</div>
+
+<div class="tomtat">
+  <div class="the-so o-lay"><span class="nhan-the">✅ Lấy</span><b id="soLay">0</b></div>
+  <div class="the-so o-loai"><span class="nhan-the">❌ Loại</span><b id="soLoai">0</b></div>
+  <div class="the-so o-loi"><span class="nhan-the">⛔ Lỗi</span><b id="soLoi">0</b></div>
+  <div class="the-so o-kiem" title="Máy đoán được nhưng không chắc — nên tự nghe lại. Tính cả bên Lấy lẫn bên Loại."><span class="nhan-the">⚠ Cần kiểm tay</span><b id="soKiem">0</b></div>
+</div>
+
+<div class="bang-boc">
+  <table>
+    <thead><tr>
+      <th style="width:38px">#</th>
+      <th style="width:96px">Kết quả</th>
+      <th style="width:168px">Nhãn</th>
+      <th style="width:62px">Tin cậy</th>
+      <th style="width:190px">Nói · Hát · Nhạc</th>
+      <th>Sound</th>
+      <th style="width:76px">Tình trạng</th>
+    </tr></thead>
+    <tbody id="than"><tr><td colspan="7" class="trong">
+      <span class="to">🎧</span>Chưa có kết quả. Dán link rồi bấm <b>Kiểm tra</b>.
+    </td></tr></tbody>
+  </table>
+</div>
+
+<footer>
+  <button id="nutCopy" disabled>Copy link LẤY được</button>
+  <button id="nutCsv" disabled>Xuất CSV</button>
+  <button id="nutKiemChung" disabled title="Xuất thư mục có audio + trang HTML nghe lại từng sound để chấm Đúng/Sai">Xuất bộ kiểm chứng</button>
+  <div class="chugiai">
+    ✅ 🗣 Giọng nói &nbsp;·&nbsp; ✅ 🎙 Giọng nói + nhạc nền (không lời)<br>
+    ❌ 🎤 Hát &nbsp;·&nbsp; ❌ 🎵 Nhạc &nbsp;·&nbsp; ❌ ❓ Không rõ &nbsp;·&nbsp; 🔒 bản quyền &nbsp;·&nbsp; 🎬 phim
+  </div>
+</footer>
+
+<div id="manDem"></div>
+<div id="panel">
+  <div class="p-dau">
+    <b id="pTen">—</b>
+    <span style="margin-left:auto"></span>
+    <button class="nutX" id="pTruoc" title="Dòng trước (←)">‹</button>
+    <span id="pSTT" class="so">—</span>
+    <button class="nutX" id="pSau" title="Dòng sau (→)">›</button>
+    <button class="nutX" id="pDong" title="Đóng (Esc)">✕</button>
+  </div>
+  <div class="p-than">
+    <div class="tt-hang" id="pThe"></div>
+    <div class="tra-cuu">
+      <span>Tra cứu:</span>
+      <button id="nutLens" title="Chụp ĐÚNG khung hình đang xem rồi tra ngược bằng Google Ống kính (ảnh vào clipboard, dán Ctrl+V)">📸 Chụp + Ống kính</button>
+      <button id="nutYT">🔎 YouTube</button>
+      <button id="nutGG">🔎 Google</button>
+      <button id="nutTT">↗ TikTok</button>
+    </div>
+    <div id="pGoiY" class="goiy"></div>
+    <div id="pKhung"></div>
+  </div>
+</div>
+
+<script src="./ui.js"></script>
+</body>
+</html>

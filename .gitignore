@@ -1,0 +1,12 @@
+node_modules/
+logs/
+*.log
+
+# Cau hinh RIENG CUA MAY, khong dua len repo cong khai:
+# .npmrc o day chi co strict-ssl=false (vong qua loi TLS cua mang noi bo). Day khong phai
+# cau hinh cua du an — day len thi ai clone ve cung bi tat kiem chung TLS khi cai goi.
+.npmrc
+
+# Ket qua dong goi — file .exe di theo Releases chu khong nam trong ma nguon.
+dist/
+../VoiceOrMusic_Release/
