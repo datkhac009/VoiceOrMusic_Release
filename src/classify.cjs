@@ -297,6 +297,12 @@ function mean(a) { return a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0
  */
 function aggregate(windows, opt = {}) {
   const T = { ...DEFAULTS, ...opt };
+  // ── VET SUY LUAN ──────────────────────────────────────────────────────────────────
+  // Ghi lai TUNG BUOC ngay trong luc luat chay, chu KHONG dung ham rieng ke lai sau.
+  // Neu ke lai sau thi som muon loi ke se lech khoi luat that (sua luat ma quen sua loi ke)
+  // — luc do nguoi dung doc mot dang, may lam mot neo. Ghi tai cho thi khong the lech.
+  const suyLuan = [];
+  const buoc = (ten, ket, chiTiet) => { suyLuan.push({ ten, ket, chiTiet }); };
   const rows = (windows || []).map(w => (w && Array.isArray(w) ? reduceWindow(w)
     : (w && Array.isArray(w.categories) ? reduceWindow(w.categories) : w)))
     .filter(w => w && typeof w.music === 'number');
@@ -314,8 +320,14 @@ function aggregate(windows, opt = {}) {
     topLabels: topLabels(rows),
   };
 
+  buoc('Nghe audio', `${nU}/${total} cửa sổ dùng được`,
+    `bỏ ${total - nU} cửa sổ im lặng (điểm Silence ≥ ${T.tQuiet})`);
+
   if (nU < T.minUsable || stats.usableFrac < T.minUsableFrac) {
+    buoc('Dừng sớm', 'không đủ dữ liệu',
+      `cần ≥${T.minUsable} cửa sổ và ≥${Math.round(T.minUsableFrac * 100)}% clip có tiếng`);
     return {
+      suyLuan,
       label: 'unknown', labelVi: LABEL_VI.unknown, accept: false, confidence: 0.2,
       reason: total === 0
         ? 'khong phan tich duoc cua so nao (audio rong/loi giai ma)'
@@ -348,6 +360,9 @@ function aggregate(windows, opt = {}) {
   // Hat LOAI ca clip du nguoi ta co noi nhieu den dau (si >= fSing la du), vi yeu cau la
   // "chi lay voice nguoi noi" — mot sound co doan hat khong dung duoc. Ai thay bi loai oan
   // thi keo fSing len; nguong nam trong DEFAULTS va ghi de duoc.
+  buoc('Nghe thấy gì', `nói ${pct(sp)} · hát ${pct(si)} · nhạc ${pct(mu)}`,
+    `hát: ${stats.singWindows}/${nU} cửa sổ vượt ${T.tSing}, đỉnh ${siMax.toFixed(3)}`);
+
   let label, margin, strength;
   // ⚠ PHAI co ca TI LE lan SO CUA SO. Ban dau chi co ti le, va chu thich cua chinh no ghi
   // "1/19 = 5.3% < 6% nen mot cua so don doc khong du" — nhung do la tinh cho clip ~19 cua
@@ -377,6 +392,18 @@ function aggregate(windows, opt = {}) {
   // ca that @LAIA cho 56%. Con rap tren beat thi giong nguoi phu KHAP clip -> ~100%.
   // Vuot nguong nay thi giu luat CU (Hát -> LOAI) — chon phia chat hon khi khong phan biet duoc.
   const noiKhapClip = sp >= T.spTranBgmLoi;
+  buoc('Xét HÁT trước', coHat ? 'CÓ nghe ra giọng hát' : 'không có giọng hát',
+    coHat
+      ? (duCuaSoHat
+          ? `${pct(si)} ≥ ${pct(T.fSing)} VÀ ${stats.singWindows} ≥ ${T.minSingWin} cửa sổ`
+          : `một cửa sổ rất mạnh: đỉnh ${siMax.toFixed(3)} ≥ ${T.sMaxSing}`)
+      : `${pct(si)} < ${pct(T.fSing)} hoặc chỉ ${stats.singWindows} < ${T.minSingWin} cửa sổ`);
+  if (coHat) {
+    buoc('Ai đang hát', noiKhapClip ? 'chính người đó hát/rap' : 'giọng hát đến từ nhạc nền',
+      noiKhapClip
+        ? `giọng nói phủ ${pct(sp)} ≥ ${pct(T.spTranBgmLoi)} cửa sổ — bài hát thật ở phía sau luôn có đoạn dạo nhạc xen vào`
+        : `giọng nói ${pct(sp)} có đứt quãng${mu >= T.fMusic ? `, nhạc ${pct(mu)} đủ dày` : `, nhưng nhạc chỉ ${pct(mu)} — chưa đủ dày`}`);
+  }
   if (coHat && sp >= T.fSpeech && mu >= T.fMusic && !noiKhapClip) {
     label = 'voice_bgm_loi';
     margin = Math.min(sp - T.fSpeech, mu - T.fMusic);
@@ -408,8 +435,11 @@ function aggregate(windows, opt = {}) {
   const marginTerm = clamp01(Math.max(0, margin) / 0.25);
   const strengthTerm = clamp01(strength / 0.7);
   const confidence = Math.round(clamp01(0.15 + 0.45 * marginTerm + 0.40 * strengthTerm) * 100) / 100;
+  buoc('Chốt nhãn', LABEL_VI[label], `tin cậy ${Math.round(confidence * 100)}%`
+    + ` (cách ngưỡng ${(Math.max(0, margin) * 100).toFixed(0)} điểm, điểm số ${strength.toFixed(2)})`);
 
   return {
+    suyLuan,
     label, labelVi: LABEL_VI[label], accept: ACCEPT[label] === true, confidence,
     reason: `noi ${pct(sp)} · hat ${pct(si)}${siMax >= T.sMaxSing ? ` (dinh ${siMax.toFixed(2)})` : ''} · nhac ${pct(mu)} tren ${nU} cua so`,
     stats,
@@ -494,6 +524,100 @@ function quyetDinhCuoi(kq, meta = {}, opt = {}) {
            ...ghiChuKhongChac(kq, meta, opt) };
 }
 
+/**
+ * CHAM HAI LUOT roi doi chieu — "phan tich 2 lan truoc khi chot".
+ *
+ * ⚠ Chay model HAI LAN tren CUNG mot doan audio la vo nghia: YAMNet tat dinh, cung dau vao
+ * thi cung dau ra tuyet doi. Muon lan thu hai co gia tri thi phai nghe DOAN KHAC.
+ * Nen o day chia clip lam doi va cham rieng tung nua. KHONG ton them gi: cung mot lan tai,
+ * cung mot lan chay model, chi gop lai theo hai tap con.
+ *
+ * Do that 2026-08-16 tren 40 sound TikTok that:
+ *     hai nua cho NHAN khac nhau : 10/40 (25%)
+ *     doi ca LAY/LOAI            :  7/40 (18%)
+ * Tuc gan 1/5 sound co ket qua KHONG ON DINH tuy nghe doan nao — day dung la nhung dong
+ * nguoi dung nen nghe lai, nen khi hai luot lech thi phai bao.
+ *
+ * @returns {{khop:boolean, nhan1:string, nhan2:string, lay1:boolean, lay2:boolean, doiKetQua:boolean}|null}
+ */
+function chamHaiLuot(windows, opt = {}) {
+  const w = windows || [];
+  if (w.length < 8) return null;          // qua ngan thi chia doi khong con y nghia
+  const giua = Math.floor(w.length / 2);
+  const a = aggregate(w.slice(0, giua), opt);
+  const b = aggregate(w.slice(giua), opt);
+  return {
+    khop: a.label === b.label,
+    doiKetQua: a.accept !== b.accept,
+    nhan1: a.labelVi, nhan2: b.labelVi,
+    lay1: a.accept, lay2: b.accept,
+  };
+}
+
+// ── HOC TU LOI: nho lai nhung lan nguoi dung sua tay, roi doi chieu voi sound moi ──────
+//
+// Y tuong: moi lan nguoi dung bam LAY/LOAI NGUOC voi may, ta luu lai "van tay so lieu" cua
+// sound do. Sound moi nao co van tay GAN GIONG mot ca da sua thi bao truoc — de khong lap
+// lai dung cai sai cu.
+//
+// ⚠ CO Y KHONG tu dong lat ket qua. Kho hoc chi co vai chuc mau, lat tu dong la bien mot
+// lan sua tay thanh mot luat ngam khong ai kiem soat duoc. No CHI GHI CHU; nguoi dung van
+// la nguoi quyet dinh.
+
+// Nam con so du de ta ca. Hat duoc danh trong so NANG HON vi ranh gioi noi/hat la cho sai
+// nhieu nhat (moi loi nguoi dung bat duoc tu truoc toi nay deu nam o do).
+const TRONG_SO_DT = [1, 2.5, 1, 2.5, 2];
+
+/** Van tay so lieu cua mot ket qua — 5 con so, tat ca deu trong khoang 0..1. */
+function dacTrung(kq) {
+  const s = (kq && kq.stats) || {};
+  return [
+    s.speechFrac || 0,
+    s.singFrac || 0,
+    s.musicFrac || 0,
+    s.singMax || 0,
+    (s.singWindows || 0) / Math.max(1, s.usableWindows || 1),
+  ];
+}
+
+/** Khoang cach giua hai van tay (0 = trung khit). */
+function khoangCachDT(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return Infinity;
+  const tong = TRONG_SO_DT.reduce((x, y) => x + y, 0);
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += TRONG_SO_DT[i] * (a[i] - b[i]) ** 2;
+  return Math.sqrt(s / tong);
+}
+
+// ⚠ NGUONG DO DUOC, khong uoc luong. Tinh khoang cach cua MOI CAP trong 46 sound that
+// (2026-08-16), roi xem cap CUNG NHAN va cap KHAC NHAN roi vao dau:
+//     cap cung nhan : trung vi 0.103
+//     cap khac nhan : thap nhat da 0.173 (10% duoi)
+// Hai vung tach nhau. Bang chon nguong:
+//     0.05 -> bat 21% cap cung nhan, 0% cap khac nhan lot  (tinh khiet 100%)
+//     0.10 -> bat 48%,               2% lot                (tinh khiet  95%)  <- chon
+//     0.20 -> bat 86%,              12% lot                (tinh khiet  82%)
+// Chon 0.10: van rat sach ma bat duoc gan nua so cap that su giong nhau.
+const NGUONG_GIONG = 0.10;
+
+/**
+ * Tim trong kho hoc nhung ca DA SUA co van tay gan giong ket qua hien tai.
+ * @param {object} kq   ket qua aggregate()
+ * @param {Array}  kho  danh sach ban ghi { khoa, ten, mayCham, banCham, dacTrung, luc }
+ * @returns {Array} cac ca giong, gan nhat truoc
+ */
+function timCaDaSua(kq, kho, opt = {}) {
+  const nguong = typeof opt.nguongGiong === 'number' ? opt.nguongGiong : NGUONG_GIONG;
+  const dt = dacTrung(kq);
+  return (kho || [])
+    // Chi doi chieu voi nhung ca may cham CUNG NHAN — vi cai can hoc la "may cham X ma
+    // that ra phai la Y", chu khong phai "hai sound nay nghe giong nhau".
+    .filter(x => x && x.mayCham === kq.label && Array.isArray(x.dacTrung))
+    .map(x => ({ ...x, kc: khoangCachDT(dt, x.dacTrung) }))
+    .filter(x => x.kc <= nguong)
+    .sort((a, b) => a.kc - b.kc);
+}
+
 // ── "KHONG CHAC — NEN KIEM TAY" ──────────────────────────────────────────────────────
 // May co nhung ca no doan duoc nhung khong dam chac. Truoc day nhung ca do van ra mot con
 // so 0/1 nhu moi ca khac, nen nguoi dung khong biet cai nao dang ngo ma soi lai. Gio danh
@@ -573,6 +697,19 @@ function ghiChuKhongChac(kq, meta = {}, opt = {}) {
   }
   if (cs > 0 && cs < 5) g.push(`clip quá ngắn (${cs} cửa sổ dùng được)`);
 
+  // Hai luot lech nhau -> ket qua phu thuoc vao nghe doan nao. Do that: 25% sound bi vay.
+  const h = kq.haiLuot;
+  if (h && !h.khop) {
+    g.push(h.doiKetQua
+      ? `2 lượt LỆCH HẲN: nửa đầu "${h.nhan1}" (${h.lay1 ? 'LẤY' : 'LOẠI'}) · nửa sau "${h.nhan2}" (${h.lay2 ? 'LẤY' : 'LOẠI'})`
+      : `2 lượt cho nhãn khác nhau: nửa đầu "${h.nhan1}" · nửa sau "${h.nhan2}"`);
+  }
+
+  // Ca giong mot lan nguoi dung da sua tay -> nhac lai, ke ca khi may dang rat chac.
+  for (const c of (meta.caDaSua || []).slice(0, 2)) {
+    g.push(`giống ca bạn đã sửa tay (${c.ten || c.khoa}): máy chấm "${kq.labelVi}"`
+      + ` nhưng bạn chọn ${c.banCham ? 'LẤY' : 'LOẠI'}`);
+  }
   // Tin hieu tu ngoai am thanh (neu co): so giong noi doc duoc trong sound.
   // ⚠ CHI GHI CHU, KHONG DUOC DUNG DE LOAI. Do that tren 46 sound: nguong ">=2 giong" bat
   // duoc 36% clip phong van nhung loai oan 28% sound thuong — vi sound phong van thuong da
@@ -583,7 +720,8 @@ function ghiChuKhongChac(kq, meta = {}, opt = {}) {
 }
 
 module.exports = {
-  aggregate, reduceWindow, topLabels, quyetDinhCuoi, ghiChuKhongChac,
+  aggregate, reduceWindow, topLabels, quyetDinhCuoi, ghiChuKhongChac, chamHaiLuot,
+  dacTrung, khoangCachDT, timCaDaSua, NGUONG_GIONG,
   DEFAULTS, LABEL_VI, ACCEPT,
   SPEECH_NAMES, SING_NAMES, MUSIC_NAMES, QUIET_NAMES, RE_DENY,
 };

@@ -12,6 +12,74 @@ bắt đầu và lúc xong.
 
 ---
 
+## 0.8.0 — 2026-08-16
+
+**🧠 Suy luận — máy nói ra từng bước nó đã nghĩ gì**
+
+Mở một dòng ra là thấy khối *"Máy đã suy luận thế nào"*, liệt kê đúng đường đi của quyết định:
+
+```
+1. Nghe audio: 16/16 cửa sổ dùng được
+2. Nghe thấy gì: nói 100% · hát 0% · nhạc 0%
+3. Xét HÁT trước: không có giọng hát  (0% < 6% hoặc chỉ 1 < 2 cửa sổ)
+4. Chốt nhãn: Giọng nói  (tin cậy 100% — cách ngưỡng 40 điểm, điểm số 0.84)
+5. Nghe lại lượt 2: hai lượt khớp nhau
+6. Kết quả: LẤY (1)
+```
+
+⚠ Vết này được **ghi ngay trong lúc luật chạy**, không phải một hàm riêng kể lại sau. Kể lại
+sau thì sớm muộn cũng lệch khỏi luật thật (sửa luật mà quên sửa lời kể) — lúc đó người dùng
+đọc một đằng, máy làm một nẻo. Có test ghim rằng nhãn trong vết luôn khớp nhãn trả về.
+
+**🔁 Phân tích 2 lượt trước khi chốt**
+
+⚠ Chạy model hai lần trên **cùng** đoạn audio là vô nghĩa — YAMNet tất định, cùng đầu vào cho
+cùng đầu ra tuyệt đối. Nên lượt 2 phải **nghe đoạn khác**: app chấm riêng nửa đầu và nửa sau
+rồi đối chiếu. **Không tốn thêm gì** — cùng một lần tải, cùng một lần chạy model.
+
+Đo trên 40 sound thật:
+
+| | |
+|---|---|
+| hai nửa cho **nhãn khác nhau** | **10/40 (25%)** |
+| **lật hẳn LẤY/LOẠI** | **7/40 (18%)** |
+
+Gần 1/5 số sound có kết quả *không ổn định* tùy nghe đoạn nào — đúng những dòng nên nghe lại.
+Lệch thì ghi chú: `2 lượt LỆCH HẲN: nửa đầu "Giọng nói" (LẤY) · nửa sau "Nhạc" (LOẠI)`.
+
+**✅❌ Nút tự chấm + máy ghi nhớ lỗi sai**
+
+Trong panel có **LẤY / LOẠI / ↺ để máy tự chấm**. Bấm **ngược ý máy** thì ngoài việc nhớ theo
+link, app còn lưu **"vân tay số liệu"** của sound đó vào kho học. Sound nào sau này có vân tay
+gần giống sẽ được cảnh báo trước:
+
+> *giống ca bạn đã sửa tay (SOUND CŨ): máy chấm "Giọng nói" nhưng bạn chọn LOẠI*
+
+Vân tay gồm 5 con số (tỉ lệ nói/hát/nhạc, đỉnh hát, tỉ lệ cửa sổ có hát), **hát được đánh trọng
+số nặng hơn** vì ranh giới nói/hát là chỗ sai nhiều nhất.
+
+**Ngưỡng "giống nhau" = 0.10, đo chứ không đoán.** Tính khoảng cách của **mọi cặp** trong 46
+sound thật:
+
+| | khoảng cách |
+|---|---|
+| cặp **cùng** nhãn | trung vị **0.103** |
+| cặp **khác** nhãn | thấp nhất đã **0.173** |
+
+Hai vùng tách rời. Bảng chọn ngưỡng: 0.05 → bắt 21% cặp cùng nhãn, 0% cặp khác lọt (tinh khiết
+100%); **0.10 → bắt 48%, 2% lọt (95%)**; 0.20 → bắt 86%, 12% lọt (82%).
+
+⚠ **Kho học chỉ GHI CHÚ, tuyệt đối không tự lật kết quả.** Kho chỉ có vài chục mẫu — lật tự
+động là biến một lần bấm tay thành luật ngầm không ai kiểm soát được. Có test riêng canh điều
+này. Chỉ lưu khi bạn bấm **ngược** ý máy; bấm trùng thì không ghi (kho để nhớ chỗ SAI, không
+phải nhật ký).
+
+**Sửa lại thứ đã mất:** 3 nút bấm tay bị gỡ ở 0.6.0 nên hàm `ghiQuyetDinhTay` thành **code chết**
+— không còn cách nào ghi đè quyết định của máy. Nay nối lại, gọn trong panel thay vì chiếm chỗ
+như 3 nút cũ.
+
+---
+
 ## 0.7.0 — 2026-08-16
 
 **Đổi luật gốc: nhạc nền CÓ LỜI vẫn lấy được — nhưng luôn kèm lời nhắc kiểm bản quyền**

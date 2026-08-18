@@ -21,7 +21,7 @@ const {
   extractHashtags, extractBio, extractCaption, nhanDangPhim, extractAnhKhungHinh,
   embedMusicUrl, embedVideoUrl, extractVideoIds, extractMusicInfos,
 } = require('./src/soundlink.cjs');
-const { aggregate, quyetDinhCuoi } = require('./src/classify.cjs');
+const { aggregate, quyetDinhCuoi, chamHaiLuot, dacTrung, timCaDaSua } = require('./src/classify.cjs');
 const { parseArgv, userArgv } = require('./src/cli-args.cjs');
 
 // Ghi nhat ky DONG BO ra file khi dat bien moi truong VOM_LOG.
@@ -415,6 +415,7 @@ async function runBatch(links, opt, hooks = {}) {
   const rows = [];
   rendererFatal = null;
   const khoTay = docQuyetDinhTay();   // quyet dinh cu cua nguoi dung, ap lai ngay tu dau
+  const khoHoc = docKhoHoc();         // nhung lan nguoi dung sua NGUOC y may — de canh bao lai
   // Don audio cua lan chay truoc: bo kiem chung phai ung voi ket qua DANG hien tren bang,
   // khong thi nghe nham file cu ma tuong may cham sai.
   if (opt.luuAudio) {
@@ -460,9 +461,14 @@ async function runBatch(links, opt, hooks = {}) {
           // Gop diem thanh nhan o MAIN (khong o renderer) de luat quyet dinh nam trong
           // module thuan classify.cjs — test duoc bang node, khong can Electron.
           const agg = aggregate(res.windows);
+          // "Phan tich 2 lan": cham rieng nua dau / nua sau roi doi chieu. Khong ton them
+          // lan tai nao va cung khong chay lai model — chi gop lai theo hai tap con.
+          agg.haiLuot = chamHaiLuot(res.windows);
           const tay = khoTay[khoaQD(base)];
+          const caDaSua = timCaDaSua(agg, khoHoc);
           row = { ...base, ok: true, durationSec: res.durationSec, ...agg,
-                  ...quyetDinhCuoi(agg, base.meta, { ...opt, nguoiDung: tay && tay.tinhTrang }) };
+                  ...quyetDinhCuoi(agg, { ...base.meta, caDaSua },
+                                   { ...opt, nguoiDung: tay && tay.tinhTrang }) };
         }
       }
       rows.push(row);
@@ -482,6 +488,32 @@ async function runBatch(links, opt, hooks = {}) {
 // Khoa la LINK SOUND DA RUT GON (`/music/original-sound-<id>`) chu khong phai chuoi nguoi
 // dung dan: cung mot sound co the duoc dan bang link dai, link ngan, hay id tro — dung khoa
 // chuan hoa thi ba kieu do van tra ve DUNG mot quyet dinh.
+// ════════════════════════ KHO HOC (nho nhung lan may cham SAI) ════════════════════════
+// Moi lan nguoi dung bam NGUOC y may, ta luu "van tay so lieu" cua sound do. Sound moi nao
+// co van tay gan giong se duoc bao truoc — de khong lap lai dung cai sai cu.
+//
+// ⚠ CHI GHI CHU, khong tu dong lat ket qua: kho nay chi co vai chuc mau, lat tu dong la
+// bien mot lan bam tay thanh mot luat ngam khong ai kiem soat duoc.
+const FILE_HOC = () => path.join(app.getPath('userData'), 'kho-hoc.json');
+
+function docKhoHoc() {
+  try {
+    const d = JSON.parse(fs.readFileSync(FILE_HOC(), 'utf8'));
+    return Array.isArray(d) ? d : [];
+  } catch (_) { return []; }
+}
+
+/** Ghi mot lan sua tay vao kho hoc. Tra ve kho moi. */
+function ghiKhoHoc(ban) {
+  const kho = docKhoHoc().filter(x => x && x.khoa !== ban.khoa);   // moi link chi giu ban moi nhat
+  kho.push(ban);
+  try {
+    fs.mkdirSync(path.dirname(FILE_HOC()), { recursive: true });
+    fs.writeFileSync(FILE_HOC(), JSON.stringify(kho, null, 1), 'utf8');
+  } catch (e) { dbg(`khong ghi duoc kho hoc: ${e.message}`); }
+  return kho;
+}
+
 const FILE_QD = () => path.join(app.getPath('userData'), 'quyet-dinh-tay.json');
 
 function docQuyetDinhTay() {
@@ -766,11 +798,57 @@ function moGiaoDien(opt) {
   // Tinh lai lay/loai cho ca danh sach (giao dien bat/tat o "Loai nhac co ban quyen").
   ipcMain.handle('ui:quyet-dinh', (_e, { rows, opt: o }) => {
     const khoTay = docQuyetDinhTay();
+    const khoHoc = docKhoHoc();
     return (rows || []).map((r) => {
       if (!r || !r.ok) return { banQuyen: false, lay: false, tinhTrang: 0, boiNguoiDung: false, lyDoLoai: 'loi' };
       const tay = khoTay[khoaQD(r)];
-      return quyetDinhCuoi(r, r.meta || {}, { ...(o || {}), nguoiDung: tay && tay.tinhTrang });
+      const caDaSua = timCaDaSua(r, khoHoc);
+      return quyetDinhCuoi(r, { ...(r.meta || {}), caDaSua }, { ...(o || {}), nguoiDung: tay && tay.tinhTrang });
     });
+  });
+
+  // NGUOI DUNG TU CHAM: bam LAY/LOAI cho mot dong (hoac bo ghi de bang tinhTrang = null).
+  //
+  // Hai viec cung luc:
+  //   1) nho quyet dinh do theo LINK (quyet-dinh-tay.json) — lan sau quet lai la co ngay;
+  //   2) neu bam NGUOC y may thi luu them vao KHO HOC kem van tay so lieu, de sound khac
+  //      giong nhu vay se duoc canh bao truoc.
+  // Bam TRUNG y may thi khong ghi vao kho hoc — kho chi de nho cho SAI, khong phai nhat ky.
+  ipcMain.handle('ui:danh-dau', (_e, { row, tinhTrang }) => {
+    const khoa = khoaQD(row);
+    if (!khoa) return { ok: false, loi: 'khong co link de lam khoa' };
+    ghiQuyetDinhTay(khoa, tinhTrang);
+
+    if (tinhTrang !== null && tinhTrang !== undefined && row && row.ok) {
+      const mayLay = row.accept === true;
+      const banLay = !!tinhTrang;
+      if (mayLay !== banLay) {
+        ghiKhoHoc({
+          khoa,
+          ten: (row.meta && (row.meta.title || row.meta.authorName)) || khoa,
+          mayCham: row.label,
+          mayLay,
+          banCham: banLay ? 1 : 0,
+          dacTrung: dacTrung(row),
+          luc: new Date().toISOString(),
+        });
+      }
+    }
+    return { ok: true, soCaDaHoc: docKhoHoc().length };
+  });
+
+  // Xem/xoa kho hoc — de nguoi dung biet may dang "nho" nhung gi.
+  ipcMain.handle('ui:kho-hoc', (_e, { xoa } = {}) => {
+    if (xoa === 'tat-ca') {
+      try { fs.writeFileSync(FILE_HOC(), '[]', 'utf8'); } catch (_) {}
+      return [];
+    }
+    if (xoa) {
+      const kho = docKhoHoc().filter(x => x && x.khoa !== xoa);
+      try { fs.writeFileSync(FILE_HOC(), JSON.stringify(kho, null, 1), 'utf8'); } catch (_) {}
+      return kho;
+    }
+    return docKhoHoc();
   });
 
 

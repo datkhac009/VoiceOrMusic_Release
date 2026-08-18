@@ -25,7 +25,7 @@ async function capNhatQuyetDinh() {
       soundUrl: r.soundUrl, input: r.input,
       // ⚠ PHAI gui ca label + stats: luat "khong chac" doc hai truong nay. Thieu chung thi
       // moi lan bat/tat o loc, toan bo ghi chu "can kiem tay" bien mat trong im lang.
-      label: r.label, stats: r.stats, confidence: r.confidence,
+      label: r.label, stats: r.stats, confidence: r.confidence, haiLuot: r.haiLuot,
     })),
     { loaiBanQuyen: $('oBanQuyen').checked, loaiPhim: $('oPhim').checked });
   ketQua.forEach((r, i) => Object.assign(r, qd[i] || { lay: false, tinhTrang: 0 }));
@@ -117,6 +117,59 @@ function veBaThanhDo(s) {
       <span class="do-ray r-${lop}"><i style="width:${pt}%"></i></span>
       <span class="do-so">${pt}%</span>`;
   }).join('')}</div>`;
+}
+
+/**
+ * Ve cac buoc suy luan. Du lieu den THANG tu classify.cjs (ghi tai cho luc luat chay),
+ * nen no luon khop voi quyet dinh that — khong phai mot ban ke lai co the lech.
+ */
+function veSuyLuan(r) {
+  const ol = $('pBuoc');
+  const b = r.suyLuan || [];
+  if (!b.length) {
+    ol.innerHTML = '<li style="color:var(--chu-mo)">(không có — dòng này lỗi hoặc chưa phân tích)</li>';
+    return;
+  }
+  const them = [];
+  // Hai luot la mot buoc suy luan that su, ghep vao cuoi cho lien mach.
+  if (r.haiLuot) {
+    them.push({ ten: 'Nghe lại lượt 2', ket: r.haiLuot.khop ? 'hai lượt khớp nhau' : 'HAI LƯỢT LỆCH',
+      chiTiet: `nửa đầu "${r.haiLuot.nhan1}" · nửa sau "${r.haiLuot.nhan2}"` });
+  }
+  if (r.lyDoLoai && !r.boiNguoiDung) them.push({ ten: 'Luật ngoài âm thanh', ket: 'LOẠI', chiTiet: r.lyDoLoai });
+  them.push({ ten: 'Kết quả', ket: r.lay ? 'LẤY (1)' : 'LOẠI (0)',
+    chiTiet: r.boiNguoiDung ? 'bạn tự chấm — máy không ghi đè' : '' });
+  ol.innerHTML = [...b, ...them].map(x =>
+    `<li><b>${esc(x.ten)}:</b> ${esc(x.ket)}${x.chiTiet ? `<i>${esc(x.chiTiet)}</i>` : ''}</li>`).join('');
+}
+
+/** Bat sang nut ung voi quyet dinh dang co, va cho biet may dang cham gi. */
+function veTuCham(r) {
+  const banLay = r.boiNguoiDung && r.lay;
+  const banLoai = r.boiNguoiDung && !r.lay;
+  $('nutBanLay').classList.toggle('dang', !!banLay);
+  $('nutBanLoai').classList.toggle('dang', !!banLoai);
+  $('nutBanBo').disabled = !r.boiNguoiDung;
+  $('tcTrangThai').textContent = r.boiNguoiDung
+    ? `bạn đã chấm — máy tự chấm là ${r.accept ? 'LẤY' : 'LOẠI'}`
+    : 'máy đang tự chấm';
+}
+
+async function banTuCham(tinhTrang) {
+  const r = ketQua[dangXem];
+  if (!r) return;
+  const kq = await window.vom.danhDau({
+    ok: r.ok, accept: r.accept, label: r.label, labelVi: r.labelVi,
+    stats: r.stats, meta: r.meta, soundUrl: r.soundUrl, input: r.input,
+  }, tinhTrang);
+  await capNhatQuyetDinh();
+  veBang(); veTomTat(); veSuyLuan(ketQua[dangXem]); veTuCham(ketQua[dangXem]);
+  if (kq && kq.ok && tinhTrang !== null) {
+    const nguoc = r.accept !== !!tinhTrang;
+    $('trangThai').textContent = nguoc
+      ? `Đã ghi nhớ: bạn chấm ngược ý máy (kho học có ${kq.soCaDaHoc} ca)`
+      : 'Đã ghi quyết định của bạn';
+  }
 }
 
 function esc(t) {
@@ -229,6 +282,10 @@ $('nutCopy').onclick = () => {
   $('trangThai').textContent = `Đã copy ${ds.length} link LẤY được`;
 };
 
+$('nutBanLay').onclick = () => banTuCham(1);
+$('nutBanLoai').onclick = () => banTuCham(0);
+$('nutBanBo').onclick = () => banTuCham(null);
+
 $('nutCsv').onclick = () => {
   // Xuat bang dau CHAM PHAY: Excel ban tieng Viet mac dinh tach cot bang ';', dung ','
   // thi mo len don het vao mot cot. Them BOM cho Excel doc dung tieng Viet co dau.
@@ -309,6 +366,8 @@ function moPanel(i) {
   $('manDem').classList.add('mo');
   $('pSTT').textContent = `${i + 1}/${ketQua.length}`;
   $('pTen').textContent = r.meta?.title || r.id || '(không có tên)';
+  veSuyLuan(r);
+  veTuCham(r);
 
   const t = r.meta?.tacGia || {};
   const the = [];

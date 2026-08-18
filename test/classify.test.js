@@ -402,6 +402,86 @@ function rep(n, w) { return Array.from({ length: n }, () => w); }
       typeof d1.chacChan === 'boolean' && Array.isArray(d1.ghiChu));
   }
 
+  console.log('\n=== 8d. SUY LUAN — ghi vet dung duong di cua quyet dinh ===');
+  {
+    const w = (o) => ({ speech: 0, singing: 0, music: 0, quiet: 0, top: 'x', ...o });
+    const rep = (n, x) => Array.from({ length: n }, () => x);
+    const r = aggregate(rep(20, w({ speech: 0.9 })));
+    check('co mang suy luan', Array.isArray(r.suyLuan) && r.suyLuan.length >= 3, JSON.stringify(r.suyLuan));
+    check('buoc dau la doc audio', /Nghe audio/.test(r.suyLuan[0].ten), r.suyLuan[0].ten);
+    check('buoc cuoi la chot nhan', /Chốt nhãn/.test(r.suyLuan[r.suyLuan.length - 1].ten));
+    // ⚠ Vet phai KHOP voi ket qua that. Ghi tai cho (trong luc luat chay) chinh la de bao dam
+    // dieu nay — neu ke lai bang mot ham rieng thi sua luat ma quen sua loi ke la lech ngay.
+    check('nhan trong vet KHOP voi nhan tra ve',
+      r.suyLuan[r.suyLuan.length - 1].ket === r.labelVi, r.suyLuan[r.suyLuan.length - 1].ket);
+
+    const rHat = aggregate([...rep(4, w({ singing: 0.3, music: 0.9 })), ...rep(8, w({ music: 0.9 }))]);
+    check('clip co hat -> co buoc "Xét HÁT trước"', rHat.suyLuan.some(x => /Xét HÁT/.test(x.ten)));
+    check('  ... va buoc "Ai đang hát"', rHat.suyLuan.some(x => /Ai đang hát/.test(x.ten)));
+    const rNgan = aggregate(rep(2, w({ speech: 0.9 })));
+    check('dung som van co vet', rNgan.label === 'unknown' && rNgan.suyLuan.some(x => /Dừng sớm/.test(x.ten)));
+  }
+
+  console.log('\n=== 8e. HAI LUOT — cham nua dau / nua sau roi doi chieu ===');
+  {
+    const { chamHaiLuot, quyetDinhCuoi } = require('../src/classify.cjs');
+    const w = (o) => ({ speech: 0, singing: 0, music: 0, quiet: 0, top: 'x', ...o });
+    const rep = (n, x) => Array.from({ length: n }, () => x);
+
+    // ⚠ Chay model 2 lan tren CUNG doan audio la vo nghia (YAMNet tat dinh). Luot 2 phai
+    // nghe DOAN KHAC. Do that tren 40 sound: 25% cho nhan khac nhau giua hai nua, 18% lat
+    // han LAY/LOAI — nen day la tin hieu that, khong phai thu tam.
+    const lech = [...rep(10, w({ speech: 0.9 })), ...rep(10, w({ music: 0.9 }))];
+    const h = chamHaiLuot(lech);
+    check('hai nua khac nhau -> bao khong khop', h.khop === false, JSON.stringify(h));
+    check('  ... va bao doi ca LAY/LOAI', h.doiKetQua === true, JSON.stringify(h));
+    check('  ... co ten nhan cua tung nua', !!h.nhan1 && !!h.nhan2 && h.nhan1 !== h.nhan2);
+
+    const deu = rep(20, w({ speech: 0.9 }));
+    check('clip dong deu -> hai luot khop', chamHaiLuot(deu).khop === true);
+    check('clip qua ngan -> khong cham hai luot (tra null)', chamHaiLuot(rep(6, w({ speech: 0.9 }))) === null);
+
+    const kq = aggregate(lech); kq.haiLuot = chamHaiLuot(lech);
+    const q = quyetDinhCuoi(kq, {});
+    check('hai luot lech -> co ghi chu', q.chacChan === false && q.ghiChu.some(x => /2 lượt/.test(x)),
+      JSON.stringify(q.ghiChu));
+    const kq2 = aggregate(deu); kq2.haiLuot = chamHaiLuot(deu);
+    check('hai luot khop -> khong ghi chu gi ve hai luot',
+      !quyetDinhCuoi(kq2, {}).ghiChu.some(x => /2 lượt/.test(x)));
+  }
+
+  console.log('\n=== 8f. HOC TU LOI — nho nhung lan nguoi dung sua nguoc y may ===');
+  {
+    const { dacTrung, khoangCachDT, timCaDaSua, NGUONG_GIONG, quyetDinhCuoi } = require('../src/classify.cjs');
+    const w = (o) => ({ speech: 0, singing: 0, music: 0, quiet: 0, top: 'x', ...o });
+    const rep = (n, x) => Array.from({ length: n }, () => x);
+    const A = aggregate(rep(20, w({ speech: 0.9 })));
+
+    check('van tay co 5 con so', dacTrung(A).length === 5);
+    check('van tay deu trong 0..1', dacTrung(A).every(v => v >= 0 && v <= 1), JSON.stringify(dacTrung(A)));
+    check('khoang cach voi chinh no = 0', khoangCachDT(dacTrung(A), dacTrung(A)) === 0);
+    check('dau vao hong -> khoang cach vo cuc', khoangCachDT(null, dacTrung(A)) === Infinity);
+
+    // ⚠ Nguong 0.10 la SO DO DUOC tren 46 sound that (cap CUNG nhan trung vi 0.103; cap
+    // KHAC nhan thap nhat 0.173 — hai vung tach roi). Ghim lai de khong ai chinh bua.
+    check('nguong giong nam trong khoang do duoc', NGUONG_GIONG > 0.05 && NGUONG_GIONG < 0.17,
+      String(NGUONG_GIONG));
+
+    const kho = [{ khoa: 'link-A', ten: 'ca cu', mayCham: A.label, banCham: 0, dacTrung: dacTrung(A) }];
+    check('sound giong het -> tim thay', timCaDaSua(A, kho).length === 1);
+    check('may cham nhan KHAC -> khong doi chieu', timCaDaSua({ ...A, label: 'music' }, kho).length === 0);
+    const B = aggregate([...rep(6, w({ singing: 0.5, music: 0.9 })), ...rep(6, w({ music: 0.9 }))]);
+    check('sound khac han -> khong tim thay', timCaDaSua(B, kho).length === 0);
+    check('kho rong -> khong nem loi', timCaDaSua(A, []).length === 0 && timCaDaSua(A, null).length === 0);
+
+    const q = quyetDinhCuoi(A, { caDaSua: timCaDaSua(A, kho) });
+    check('co ghi chu nhac lai ca da sua', q.ghiChu.some(x => /đã sửa tay/.test(x)), JSON.stringify(q.ghiChu));
+    // ⚠ TUYET DOI khong duoc tu lat ket qua: kho hoc chi co vai chuc mau, lat tu dong la
+    // bien mot lan bam tay thanh luat ngam khong ai kiem soat duoc.
+    check('nhung KHONG tu lat ket qua (van theo may)', q.lay === A.accept, `may=${A.accept} sau=${q.lay}`);
+  }
+
+
   console.log('\n=== 9. stats phai du de GIAI THICH ket qua cho nguoi dung ===');
   {
     const r = aggregate(rep(15, win({ 'Music': 0.9, 'Techno': 0.8, 'Speech': 0.02 })));

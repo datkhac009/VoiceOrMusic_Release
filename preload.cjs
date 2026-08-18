@@ -32,6 +32,11 @@ contextBridge.exposeInMainWorld('vom', {
   // Gui ca mang mot lan chu khong hoi tung dong: 50 link la 50 vong IPC vo ich.
   quyetDinhTatCa: (rows, opt) => ipcRenderer.invoke('ui:quyet-dinh', { rows, opt }),
 
+  // Nguoi dung tu bam LAY/LOAI cho mot dong. tinhTrang = 1 | 0 | null (bo ghi de).
+  // Neu bam nguoc y may thi main tu luu vao KHO HOC de canh bao cho nhung sound giong sau nay.
+  danhDau: (row, tinhTrang) => ipcRenderer.invoke('ui:danh-dau', { row, tinhTrang }),
+  khoHoc: (tuyChon) => ipcRenderer.invoke('ui:kho-hoc', tuyChon || {}),
+
   // Dang ky nhan tin tuc trong luc chay. Tra ve ham go dang ky de khong dinh ro ri.
   khiTienDo: (fn) => {
     const h = (_e, d) => fn(d);

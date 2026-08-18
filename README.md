@@ -1,6 +1,6 @@
 # VoiceOrMusic — lọc sound TikTok theo giọng người
 
-**Phiên bản hiện tại: 0.7.0** — xem [CHANGELOG.md](CHANGELOG.md) để biết bản nào có gì.
+**Phiên bản hiện tại: 0.8.0** — xem [CHANGELOG.md](CHANGELOG.md) để biết bản nào có gì.
 Số phiên bản hiện ở 4 chỗ: thanh tiêu đề cửa sổ, huy hiệu cạnh tên app trong giao diện, đầu báo
 cáo dòng lệnh, và đầu trang bộ kiểm chứng. File `.exe` cũng mang đúng số đó trong Properties.
 
@@ -108,6 +108,39 @@ Luật cũng bắt nhóm **phỏng vấn / talkshow / podcast** (`interview`, `p
 mặt âm thanh *giống hệt* người ngồi nói với camera, và thực tế đo được là hầu như không ai gắn
 `#interview` (clip phỏng vấn Katt Williams gắn `#realspill #fyp #viral`). Ca đó phải xem bằng
 mini browser + 📸 Ống kính.
+
+## 🧠 Suy luận · 🔁 hai lượt · ✅❌ tự chấm
+
+Mở một dòng ra (bấm vào dòng đó) thì thấy ba thứ:
+
+**🧠 Máy đã suy luận thế nào** — từng bước một, đúng đường đi thật của quyết định:
+
+```
+1. Nghe audio: 16/16 cửa sổ dùng được
+2. Nghe thấy gì: nói 100% · hát 0% · nhạc 0%
+3. Xét HÁT trước: không có giọng hát  (0% < 6% hoặc chỉ 1 < 2 cửa sổ)
+4. Chốt nhãn: Giọng nói  (tin cậy 100%)
+5. Nghe lại lượt 2: hai lượt khớp nhau
+6. Kết quả: LẤY (1)
+```
+
+Vết này **ghi ngay trong lúc luật chạy**, không phải kể lại sau — nên nó không thể lệch khỏi
+quyết định thật.
+
+**🔁 Hai lượt.** Chạy model hai lần trên *cùng* đoạn audio là vô nghĩa (YAMNet tất định). Nên
+lượt 2 nghe **đoạn khác**: chấm riêng nửa đầu và nửa sau rồi đối chiếu. Không tốn thêm gì.
+Đo trên 40 sound thật: **25% cho nhãn khác nhau giữa hai nửa, 18% lật hẳn LẤY/LOẠI** — lệch thì
+ghi chú để bạn nghe lại.
+
+**✅❌ Bạn tự chấm.** Ba nút **LẤY / LOẠI / ↺ để máy tự chấm**. Bấm **ngược ý máy** thì ngoài
+việc nhớ theo link, app lưu **vân tay số liệu** của sound đó; sound nào sau này gần giống sẽ
+được cảnh báo: *"giống ca bạn đã sửa tay (…): máy chấm X nhưng bạn chọn Y"*.
+
+Ngưỡng "giống nhau" = **0.10**, đo trên mọi cặp trong 46 sound thật (cặp cùng nhãn trung vị
+0.103; cặp khác nhãn thấp nhất 0.173 — hai vùng tách rời; ngưỡng này giữ độ tinh khiết 95%).
+
+⚠ Kho học **chỉ ghi chú, không tự lật kết quả** — kho chỉ có vài chục mẫu, lật tự động là biến
+một lần bấm tay thành luật ngầm không kiểm soát được.
 
 ### ⚠ Cần kiểm tay
 

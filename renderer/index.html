@@ -258,6 +258,24 @@ tbody tr.chon td:first-child { box-shadow: inset 3px 0 0 var(--nhan); }
    "clip nay cat tu dau", nen de ngay trong bang chu khong bat mo panel moi thay. */
 .cap { color: var(--chu-2); font-size: 11px; margin: 2px 0 1px; line-height: 1.35;
        max-width: 44ch; }
+
+/* ── Nguoi dung tu cham + suy luan (trong panel) ────────────────────────── */
+.tu-cham { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px;
+           padding: 10px 12px; background: var(--nen-1); border: 1px solid var(--vien);
+           border-radius: var(--bo-goc); }
+.tc-nhan { color: var(--chu-2); font-size: 12px; }
+button.tc { padding: 6px 13px; font-size: 12.5px; }
+button.tc-lay.dang  { background: var(--tot); border-color: var(--tot); color: #04210f; font-weight: 650; }
+button.tc-loai.dang { background: var(--xau); border-color: var(--xau); color: #2a0505; font-weight: 650; }
+.tc-tt { margin-left: auto; font-size: 11.5px; color: var(--chu-2); }
+
+.suyluan { margin: 10px 0 4px; background: var(--nen-1); border: 1px solid var(--vien);
+           border-radius: var(--bo-goc); padding: 9px 12px; }
+.suyluan summary { cursor: pointer; font-size: 12.5px; color: var(--chu-2); font-weight: 600; }
+.suyluan ol { margin: 8px 0 2px; padding-left: 20px; }
+.suyluan li { font-size: 12px; margin-bottom: 5px; line-height: 1.5; }
+.suyluan b { color: var(--chu); }
+.suyluan i { font-style: normal; color: var(--chu-mo); display: block; font-size: 11px; }
 /* ANH KHUNG HINH ngay trong bang.
    ⚠ Day KHONG phai trang tri. Da do het cac cach cho may tu nhan ra clip phong van:
    am thanh (Applause = 0.000 tren 14 clip that), chu (caption bat 1/14), nhin hinh
@@ -397,6 +415,23 @@ footer {
   </div>
   <div class="p-than">
     <div class="tt-hang" id="pThe"></div>
+
+    <!-- Nguoi dung tu cham. Dat NGAY DAU panel vi day la viec chinh khi mo mot dong ra xem.
+         Bam nguoc y may thi may ghi nho lai (kho hoc) de canh bao cho sound giong sau nay. -->
+    <div class="tu-cham">
+      <span class="tc-nhan">Bạn chấm:</span>
+      <button id="nutBanLay" class="tc tc-lay">✅ LẤY</button>
+      <button id="nutBanLoai" class="tc tc-loai">❌ LOẠI</button>
+      <button id="nutBanBo" class="tc" title="Bỏ ghi đè, trả về kết quả máy tự chấm">↺ để máy tự chấm</button>
+      <span id="tcTrangThai" class="tc-tt"></span>
+    </div>
+
+    <!-- Suy luan: ghi lai DUNG duong di cua quyet dinh, tung buoc mot -->
+    <details id="pSuyLuan" class="suyluan" open>
+      <summary>🧠 Máy đã suy luận thế nào</summary>
+      <ol id="pBuoc"></ol>
+    </details>
+
     <div class="tra-cuu">
       <span>Tra cứu:</span>
       <button id="nutLens" title="Chụp ĐÚNG khung hình đang xem rồi tra ngược bằng Google Ống kính (ảnh vào clipboard, dán Ctrl+V)">📸 Chụp + Ống kính</button>
