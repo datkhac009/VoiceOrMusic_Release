@@ -477,6 +477,7 @@ function topLabels(rows) {
  */
 function quyetDinhCuoi(kq, meta = {}, opt = {}) {
   const loaiBanQuyen = opt.loaiBanQuyen !== false;      // mac dinh BAT
+  const hocTuSua = opt.hocTuSua !== false;              // mac dinh BAT
 
   // ── NGUOI DUNG TU CHON THI THANG TAT CA ──────────────────────────────────────────
   // Co nhung thu may KHONG the biet: sound do la phong van hay khong, co phai trich doan
@@ -493,6 +494,40 @@ function quyetDinhCuoi(kq, meta = {}, opt = {}) {
       tinhTrang: lay ? 1 : 0,
       boiNguoiDung: true,
       lyDoLoai: lay ? '' : 'ban tu chon loai',
+    };
+  }
+  // ── TU SUA THEO CA NGUOI DUNG DA DAY ─────────────────────────────────────────────
+  // Yeu cau cua nguoi dung: "sai roi thi phai nho, va TRANH TIEP DIEN lan sai tiep theo".
+  // Canh bao suong thi khong tranh duoc gi — nen o day AP DUNG LUON quyet dinh cu.
+  //
+  // ⚠ Chi ap dung khi ca cu GAN NHU TRUNG KHIT (kc <= NGUONG_TU_SUA = 0.05) — muc ma trong
+  // 46 sound that CHUA TUNG co cap khac nhan nao lot vao (tinh khiet 100%). Vung 0.05-0.10
+  // thi chi CANH BAO, vi o do da co 2% cap khac nhan lot; tu sua o vung do la sai am tham,
+  // nguoi dung khong biet duong ma xem lai.
+  //
+  // Thu tu uu tien tu tren xuong:
+  //   1) nguoi dung bam tay CHO CHINH LINK NAY  (khoi o tren, thang tuyet doi)
+  //   2) tu sua theo ca da day                   (khoi nay)
+  //   3) luat may                                 (ben duoi)
+  // Va no LUON noi ro vua lam gi — khong bao gio sua am tham.
+  const caGan = (opt.hocTuSua === false) ? []
+    : (meta.caDaSua || []).filter(c => c && typeof c.kc === 'number' && c.kc <= NGUONG_TU_SUA);
+  const caDay = caGan[0];
+  if (caDay && (caDay.banCham === 1) !== (kq.accept === true)) {
+    const layTheoHoc = caDay.banCham === 1;
+    return {
+      banQuyen: meta.original === false,
+      nghiPhim: meta.nghiPhim === true,
+      lay: layTheoHoc,
+      tinhTrang: layTheoHoc ? 1 : 0,
+      boiNguoiDung: false,
+      boiHoc: true,
+      caDay: { ten: caDay.ten, khoa: caDay.khoa, kc: Number(caDay.kc.toFixed(3)) },
+      lyDoLoai: layTheoHoc ? '' : `tu sua theo ca ban da day: ${caDay.ten || caDay.khoa}`,
+      chacChan: false,
+      ghiChu: [`🧠 TỰ SỬA theo ca bạn đã dạy (${caDay.ten || caDay.khoa}) — máy chấm "${kq.labelVi}"`
+        + ` (${kq.accept ? 'LẤY' : 'LOẠI'}) nhưng lần trước bạn chọn ${layTheoHoc ? 'LẤY' : 'LOẠI'}`
+        + ` cho sound gần như y hệt (khoảng cách ${caDay.kc.toFixed(3)})`],
     };
   }
   // Chi `false` moi la "biet chac day la nhac catalog". `null` = khong doc duoc thong tin
@@ -599,6 +634,15 @@ function khoangCachDT(a, b) {
 //     0.20 -> bat 86%,              12% lot                (tinh khiet  82%)
 // Chon 0.10: van rat sach ma bat duoc gan nua so cap that su giong nhau.
 const NGUONG_GIONG = 0.10;
+
+// ⚠ NGUONG TU SUA — CHAT HON HAN nguong canh bao, va cung do tu chinh bang do tren.
+// Bang do tren 46 sound that:
+//     0.05 -> bat 21% cap cung nhan, KHONG cap khac nhan nao lot  (tinh khiet 100%)
+//     0.10 -> bat 48%,               2% lot                       (tinh khiet  95%)
+// Tu SUA thi phai la 100%: sai mot lan la sai am tham, nguoi dung khong biet duong ma xem
+// lai. Nen tu sua chi chay o vung 0.05 (chua tung thay cap khac nhan nao), con vung
+// 0.05-0.10 thi chi CANH BAO de nguoi dung tu quyet.
+const NGUONG_TU_SUA = 0.05;
 
 /**
  * Tim trong kho hoc nhung ca DA SUA co van tay gan giong ket qua hien tai.
@@ -721,7 +765,7 @@ function ghiChuKhongChac(kq, meta = {}, opt = {}) {
 
 module.exports = {
   aggregate, reduceWindow, topLabels, quyetDinhCuoi, ghiChuKhongChac, chamHaiLuot,
-  dacTrung, khoangCachDT, timCaDaSua, NGUONG_GIONG,
+  dacTrung, khoangCachDT, timCaDaSua, NGUONG_GIONG, NGUONG_TU_SUA,
   DEFAULTS, LABEL_VI, ACCEPT,
   SPEECH_NAMES, SING_NAMES, MUSIC_NAMES, QUIET_NAMES, RE_DENY,
 };

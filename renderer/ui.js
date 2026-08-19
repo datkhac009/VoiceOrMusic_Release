@@ -27,7 +27,8 @@ async function capNhatQuyetDinh() {
       // moi lan bat/tat o loc, toan bo ghi chu "can kiem tay" bien mat trong im lang.
       label: r.label, stats: r.stats, confidence: r.confidence, haiLuot: r.haiLuot,
     })),
-    { loaiBanQuyen: $('oBanQuyen').checked, loaiPhim: $('oPhim').checked });
+    { loaiBanQuyen: $('oBanQuyen').checked, loaiPhim: $('oPhim').checked,
+      hocTuSua: $('oHoc').checked });
   ketQua.forEach((r, i) => Object.assign(r, qd[i] || { lay: false, tinhTrang: 0 }));
 }
 
@@ -58,7 +59,8 @@ function veBang() {
     return `<tr>
       <td class="so">${stt}</td>
       <td><span class="pill ${r.lay ? 'lay' : 'loai'}">${r.lay ? '✅ LẤY' : '❌ LOẠI'}</span>${
-        r.boiNguoiDung ? '<div class="co-nho tay">👤 bạn chọn</div>' : ''}</td>
+        r.boiNguoiDung ? '<div class="co-nho tay">👤 bạn chọn</div>'
+        : r.boiHoc ? '<div class="co-nho hoc">🧠 tự sửa theo ca đã dạy</div>' : ''}</td>
       <td>
         <div class="nhan-chinh">${ICON[r.label] || ''} ${esc(r.labelVi || '')}</div>
         ${r.banQuyen ? '<div class="co-nho">🔒 có bản quyền</div>' : ''}
@@ -136,9 +138,14 @@ function veSuyLuan(r) {
     them.push({ ten: 'Nghe lại lượt 2', ket: r.haiLuot.khop ? 'hai lượt khớp nhau' : 'HAI LƯỢT LỆCH',
       chiTiet: `nửa đầu "${r.haiLuot.nhan1}" · nửa sau "${r.haiLuot.nhan2}"` });
   }
-  if (r.lyDoLoai && !r.boiNguoiDung) them.push({ ten: 'Luật ngoài âm thanh', ket: 'LOẠI', chiTiet: r.lyDoLoai });
+  if (r.boiHoc && r.caDay) {
+    them.push({ ten: 'Đối chiếu ca bạn đã dạy', ket: 'TỰ SỬA',
+      chiTiet: `${r.caDay.ten || r.caDay.khoa} — khoảng cách ${r.caDay.kc} (≤ 0.05 mới được tự sửa)` });
+  }
+  if (r.lyDoLoai && !r.boiNguoiDung && !r.boiHoc) them.push({ ten: 'Luật ngoài âm thanh', ket: 'LOẠI', chiTiet: r.lyDoLoai });
   them.push({ ten: 'Kết quả', ket: r.lay ? 'LẤY (1)' : 'LOẠI (0)',
-    chiTiet: r.boiNguoiDung ? 'bạn tự chấm — máy không ghi đè' : '' });
+    chiTiet: r.boiNguoiDung ? 'bạn tự chấm — máy không ghi đè'
+           : r.boiHoc ? 'đã tự sửa theo ca bạn dạy — bấm nút bên trên nếu vẫn sai' : '' });
   ol.innerHTML = [...b, ...them].map(x =>
     `<li><b>${esc(x.ten)}:</b> ${esc(x.ket)}${x.chiTiet ? `<i>${esc(x.chiTiet)}</i>` : ''}</li>`).join('');
 }
@@ -225,6 +232,7 @@ async function chay() {
       seconds: Number($('oGiay').value) || 120,
       loaiBanQuyen: $('oBanQuyen').checked,
       loaiPhim: $('oPhim').checked,
+      hocTuSua: $('oHoc').checked,
     });
   } catch (e) {
     kq = { error: String(e && e.message || e) };
@@ -275,6 +283,7 @@ $('nutDung').onclick = async () => {
 $('oChiLay').onchange = veBang;
 $('oBanQuyen').onchange = async () => { await capNhatQuyetDinh(); veBang(); veTomTat(); };
 $('oPhim').onchange = async () => { await capNhatQuyetDinh(); veBang(); veTomTat(); };
+$('oHoc').onchange = async () => { await capNhatQuyetDinh(); veBang(); veTomTat(); };
 
 $('nutCopy').onclick = () => {
   const ds = ketQua.filter(r => r.ok && r.lay).map(r => r.soundUrl || r.input);

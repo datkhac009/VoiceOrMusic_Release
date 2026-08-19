@@ -12,6 +12,49 @@ bắt đầu và lúc xong.
 
 ---
 
+## 0.9.0 — 2026-08-16
+
+**🧠 Kho học giờ TỰ SỬA, không chỉ cảnh báo nữa**
+
+Ở 0.8.0 tôi cố tình chỉ cho nó ghi chú. Bạn nhắc lại rằng yêu cầu là **"tránh tiếp diễn lần
+sai tiếp theo"** — mà cảnh báo suông thì không tránh được gì. Nay nó **áp luôn quyết định cũ
+của bạn**.
+
+**Hai ngưỡng, hai cách xử, cả hai đều lấy từ cùng một bảng đo trên 46 sound thật:**
+
+| khoảng cách | cặp khác nhãn lọt vào | app làm gì |
+|---|---|---|
+| **≤ 0.05** | **0%** (chưa từng thấy) | **TỰ SỬA** theo quyết định cũ của bạn |
+| 0.05 – 0.10 | 2% | chỉ **cảnh báo**, bạn tự quyết |
+| > 0.10 | — | không nhắc gì |
+
+Lý do tách hai mức: tự sửa mà sai thì **sai âm thầm** — bạn không biết đường mà xem lại. Nên
+chỉ sửa ở vùng chưa từng có cặp khác nhãn nào lọt vào; vùng 0.05–0.10 còn 2% thì chỉ đủ để báo.
+
+**Nó không bao giờ sửa âm thầm.** Dòng bị sửa mang nhãn **🧠 tự sửa theo ca đã dạy** trong bảng,
+và trong phần suy luận có hẳn một bước:
+
+```
+Đối chiếu ca bạn đã dạy: TỰ SỬA
+   SOUND CŨ — khoảng cách 0.000 (≤ 0.05 mới được tự sửa)
+Kết quả: LOẠI (0)
+   đã tự sửa theo ca bạn dạy — bấm nút bên trên nếu vẫn sai
+```
+
+**Thứ tự ưu tiên** (test ghim từng nấc):
+
+1. Bạn bấm tay **cho chính link đó** — thắng tuyệt đối
+2. Tự sửa theo ca đã dạy
+3. Luật máy
+
+**Ô bật/tắt 🧠 "Tự sửa theo ca đã dạy"** cạnh hai ô lọc cũ (mặc định bật). Tắt là quay về chỉ
+ghi chú, tính lại ngay không phải quét lại.
+
+Đã kiểm đầu-cuối trên app thật: gieo một ca đã sửa rồi quét **một sound khác link** có số liệu
+trùng khít → máy chấm *Giọng nói · LẤY*, kho học lật thành **LOẠI**, kèm lý do đầy đủ.
+
+---
+
 ## 0.8.0 — 2026-08-16
 
 **🧠 Suy luận — máy nói ra từng bước nó đã nghĩ gì**

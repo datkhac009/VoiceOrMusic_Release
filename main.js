@@ -925,7 +925,7 @@ function moGiaoDien(opt) {
     }
   });
   ipcMain.handle('ui:stop', () => { stopRequested = true; return true; });
-  ipcMain.handle('ui:start', async (_e, { links, seconds, loaiBanQuyen, loaiPhim }) => {
+  ipcMain.handle('ui:start', async (_e, { links, seconds, loaiBanQuyen, loaiPhim, hocTuSua }) => {
     if (dangChay) return { error: 'dang chay roi' };
     if (!fs.existsSync(MODEL_PATH)) return { error: thieuModel() };
     dangChay = true;
@@ -935,6 +935,7 @@ function moGiaoDien(opt) {
       seconds: Math.max(3, Number(seconds) || 120),
       loaiBanQuyen: loaiBanQuyen !== false,
       loaiPhim: loaiPhim !== false,
+      hocTuSua: hocTuSua !== false,
       luuAudio: true,      // giao dien luon giu audio de con xuat bo kiem chung
     };
     const send = (kenh, du) => { if (!win.isDestroyed()) win.webContents.send(kenh, du); };

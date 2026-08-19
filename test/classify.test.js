@@ -467,8 +467,11 @@ function rep(n, w) { return Array.from({ length: n }, () => w); }
     check('nguong giong nam trong khoang do duoc', NGUONG_GIONG > 0.05 && NGUONG_GIONG < 0.17,
       String(NGUONG_GIONG));
 
-    const kho = [{ khoa: 'link-A', ten: 'ca cu', mayCham: A.label, banCham: 0, dacTrung: dacTrung(A) }];
-    check('sound giong het -> tim thay', timCaDaSua(A, kho).length === 1);
+    // Dat ca cu o vung CHI CANH BAO (0.05 < kc <= 0.10). Vung trung khit (tu sua) do muc 8g lo.
+    const dtGan = dacTrung(A).slice(); dtGan[1] += 0.12;
+    const kho = [{ khoa: 'link-A', ten: 'ca cu', mayCham: A.label, banCham: 0, dacTrung: dtGan }];
+    check('sound gan giong -> tim thay', timCaDaSua(A, kho).length === 1,
+      JSON.stringify(timCaDaSua(A, kho).map(x => x.kc)));
     check('may cham nhan KHAC -> khong doi chieu', timCaDaSua({ ...A, label: 'music' }, kho).length === 0);
     const B = aggregate([...rep(6, w({ singing: 0.5, music: 0.9 })), ...rep(6, w({ music: 0.9 }))]);
     check('sound khac han -> khong tim thay', timCaDaSua(B, kho).length === 0);
@@ -476,12 +479,56 @@ function rep(n, w) { return Array.from({ length: n }, () => w); }
 
     const q = quyetDinhCuoi(A, { caDaSua: timCaDaSua(A, kho) });
     check('co ghi chu nhac lai ca da sua', q.ghiChu.some(x => /đã sửa tay/.test(x)), JSON.stringify(q.ghiChu));
-    // ⚠ TUYET DOI khong duoc tu lat ket qua: kho hoc chi co vai chuc mau, lat tu dong la
-    // bien mot lan bam tay thanh luat ngam khong ai kiem soat duoc.
-    check('nhung KHONG tu lat ket qua (van theo may)', q.lay === A.accept, `may=${A.accept} sau=${q.lay}`);
+    // ⚠ O vung nay (chi GAN giong) thi KHONG duoc tu lat — vi do tren 46 sound that con 2%
+    // cap khac nhan lot vao. Chi vung <= 0.05 moi du sach de tu sua (xem muc 8g).
+    check('vung gan giong -> KHONG tu lat, chi bao', q.lay === A.accept && !q.boiHoc,
+      `may=${A.accept} sau=${q.lay} boiHoc=${!!q.boiHoc}`);
   }
 
 
+  console.log('\n=== 8g. TU SUA theo ca da day (tranh lap lai dung cai sai cu) ===');
+  {
+    const { dacTrung, timCaDaSua, NGUONG_TU_SUA, NGUONG_GIONG, quyetDinhCuoi } = require('../src/classify.cjs');
+    const w = (o) => ({ speech: 0, singing: 0, music: 0, quiet: 0, top: 'x', ...o });
+    const rep = (n, x) => Array.from({ length: n }, () => x);
+    const A = aggregate(rep(20, w({ speech: 0.9 })));      // may cham: Giọng nói -> LAY
+
+    // ⚠ Hai nguong KHAC NHAU va deu do duoc tren 46 sound that:
+    //     0.05 (tu sua)   -> 0% cap khac nhan lot  -> du sach de SUA
+    //     0.10 (canh bao) -> 2% lot                -> chi du de BAO
+    check('nguong tu sua CHAT hon nguong canh bao', NGUONG_TU_SUA < NGUONG_GIONG,
+      `${NGUONG_TU_SUA} vs ${NGUONG_GIONG}`);
+
+    const kho = [{ khoa: 'link-cu', ten: 'CA DA DAY', mayCham: A.label, banCham: 0, dacTrung: dacTrung(A) }];
+    const q = quyetDinhCuoi(A, { caDaSua: timCaDaSua(A, kho) });
+    check('ca trung khit -> TU SUA theo y ban', q.lay === false && q.boiHoc === true,
+      `lay=${q.lay} boiHoc=${q.boiHoc}`);
+    check('  ... va noi ro vua tu sua (khong sua am tham)',
+      q.ghiChu.some(x => /TỰ SỬA/.test(x)), JSON.stringify(q.ghiChu));
+    check('  ... kem ten ca da day + khoang cach', !!q.caDay && typeof q.caDay.kc === 'number');
+
+    // Ca chi GAN giong (0.05 < kc <= 0.10) thi CHI CANH BAO, khong duoc tu sua.
+    const dtGan = dacTrung(A).slice(); dtGan[1] += 0.12;    // lech vua du de vuot 0.05
+    const khoGan = [{ khoa: 'link-gan', ten: 'CA GAN GIONG', mayCham: A.label, banCham: 0, dacTrung: dtGan }];
+    const qGan = quyetDinhCuoi(A, { caDaSua: timCaDaSua(A, khoGan) });
+    check('ca chi GAN giong -> KHONG tu sua, chi canh bao',
+      qGan.lay === A.accept && !qGan.boiHoc && qGan.ghiChu.some(x => /đã sửa tay/.test(x)),
+      `lay=${qGan.lay} boiHoc=${!!qGan.boiHoc} ${JSON.stringify(qGan.ghiChu)}`);
+
+    // Tat cong tac hoc thi tro ve luat may.
+    const qTat = quyetDinhCuoi(A, { caDaSua: timCaDaSua(A, kho) }, { hocTuSua: false });
+    check('tat "tu sua theo ca da day" -> tro ve luat may', qTat.lay === A.accept && !qTat.boiHoc);
+
+    // ⚠ Nguoi dung bam tay CHO CHINH LINK NAY phai THANG ca kho hoc.
+    const qTay = quyetDinhCuoi(A, { caDaSua: timCaDaSua(A, kho) }, { nguoiDung: 1 });
+    check('ban bam tay cho link nay -> thang kho hoc',
+      qTay.lay === true && qTay.boiNguoiDung === true && !qTay.boiHoc);
+
+    // Ca da day mà TRUNG y may thi khong co gi de sua.
+    const khoTrung = [{ khoa: 'link-x', ten: 'CA TRUNG Y', mayCham: A.label, banCham: 1, dacTrung: dacTrung(A) }];
+    check('ca da day trung y may -> khong tu sua',
+      !quyetDinhCuoi(A, { caDaSua: timCaDaSua(A, khoTrung) }).boiHoc);
+  }
   console.log('\n=== 9. stats phai du de GIAI THICH ket qua cho nguoi dung ===');
   {
     const r = aggregate(rep(15, win({ 'Music': 0.9, 'Techno': 0.8, 'Speech': 0.02 })));

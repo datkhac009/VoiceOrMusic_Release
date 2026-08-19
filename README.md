@@ -1,6 +1,6 @@
 # VoiceOrMusic — lọc sound TikTok theo giọng người
 
-**Phiên bản hiện tại: 0.8.0** — xem [CHANGELOG.md](CHANGELOG.md) để biết bản nào có gì.
+**Phiên bản hiện tại: 0.9.0** — xem [CHANGELOG.md](CHANGELOG.md) để biết bản nào có gì.
 Số phiên bản hiện ở 4 chỗ: thanh tiêu đề cửa sổ, huy hiệu cạnh tên app trong giao diện, đầu báo
 cáo dòng lệnh, và đầu trang bộ kiểm chứng. File `.exe` cũng mang đúng số đó trong Properties.
 
@@ -139,8 +139,21 @@ việc nhớ theo link, app lưu **vân tay số liệu** của sound đó; soun
 Ngưỡng "giống nhau" = **0.10**, đo trên mọi cặp trong 46 sound thật (cặp cùng nhãn trung vị
 0.103; cặp khác nhãn thấp nhất 0.173 — hai vùng tách rời; ngưỡng này giữ độ tinh khiết 95%).
 
-⚠ Kho học **chỉ ghi chú, không tự lật kết quả** — kho chỉ có vài chục mẫu, lật tự động là biến
-một lần bấm tay thành luật ngầm không kiểm soát được.
+**Hai mức, cùng lấy từ một bảng đo trên 46 sound thật:**
+
+| khoảng cách | cặp khác nhãn lọt vào | app làm gì |
+|---|---|---|
+| **≤ 0.05** | **0%** | **TỰ SỬA** theo quyết định cũ của bạn |
+| 0.05 – 0.10 | 2% | chỉ **cảnh báo** |
+
+Tự sửa mà sai thì sai âm thầm, nên chỉ sửa ở vùng chưa từng có cặp khác nhãn nào lọt vào.
+
+Nó **không bao giờ sửa âm thầm**: dòng bị sửa mang nhãn 🧠 *tự sửa theo ca đã dạy*, và phần suy
+luận có hẳn một bước ghi rõ ca nào + khoảng cách bao nhiêu. Ô **🧠 Tự sửa theo ca đã dạy** tắt
+được (khi tắt thì chỉ ghi chú).
+
+Thứ tự ưu tiên: (1) bạn bấm tay cho chính link đó — thắng tuyệt đối; (2) tự sửa theo ca đã dạy;
+(3) luật máy.
 
 ### ⚠ Cần kiểm tay
 

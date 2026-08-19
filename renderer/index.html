@@ -231,6 +231,9 @@ tbody tr.chon td:first-child { box-shadow: inset 3px 0 0 var(--nhan); }
 .co-nho { display: flex; align-items: center; gap: 4px; font-size: 10.5px;
           color: var(--canh); margin-top: 3px; }
 .co-nho.tay { color: var(--nhan-2); }
+/* Dong bi TU SUA theo ca da day — mau CANH BAO, khong phai mau ket qua: no la loi nhac
+   rang ket qua nay den tu mot lan ban day chu khong tu luat may. */
+.co-nho.hoc { color: var(--canh); }
 
 .so { font-variant-numeric: tabular-nums; color: var(--chu-2); }
 .tincay { font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -365,6 +368,8 @@ footer {
       <input type="checkbox" id="oBanQuyen" checked><span class="dau">✓</span> 🔒 Loại nhạc có bản quyền</label>
     <label class="chip" title="Nhận ra qua hashtag của video và bio tài khoản (#anime, #phim, #cartoon, #interview...)">
       <input type="checkbox" id="oPhim" checked><span class="dau">✓</span> 🎬 Loại voice phim/hoạt hình</label>
+    <label class="chip" title="Khi một sound gần như y hệt một ca bạn từng sửa tay, tự áp lại quyết định của bạn thay vì lặp lại đúng cái sai cũ. Tắt đi thì chỉ ghi chú, không tự sửa.">
+      <input type="checkbox" id="oHoc" checked><span class="dau">✓</span> 🧠 Tự sửa theo ca đã dạy</label>
   </div>
 </div>
 
