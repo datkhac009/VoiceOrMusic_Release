@@ -481,8 +481,99 @@ $('pTruoc').onclick = () => moPanel(Math.max(0, dangXem - 1));
 $('pSau').onclick = () => moPanel(Math.min(ketQua.length - 1, dangXem + 1));
 
 document.addEventListener('keydown', (e) => {
+  // ⚠ Hop CAP NHAT phai xet TRUOC cai chot "panel dang mo" ben duoi — no nam tren cung va
+  // co the mo mot minh (khong can panel). De sau chot do thi Esc khong bao gio den duoc.
+  if (e.key === 'Escape' && $('hopCapNhat').classList.contains('mo')) return cnDong();
   if (!$('panel').classList.contains('mo')) return;
-  if (e.key === 'Escape') dongPanel();
+  if (e.key === 'Escape') return dongPanel();
   else if (e.key === 'ArrowLeft') moPanel(Math.max(0, dangXem - 1));
   else if (e.key === 'ArrowRight') moPanel(Math.min(ketQua.length - 1, dangXem + 1));
 });
+
+// ── TU CAP NHAT ─────────────────────────────────────────────────────────────────────
+// Luong: bam "Cap nhat" -> hoi GitHub -> hien co ban moi hay chua -> bam "Tai va cap nhat".
+let cnUrl = null;
+let cnBoTienDo = null;
+
+function cnMo() { $('hopCapNhat').classList.add('mo'); }
+function cnDong() {
+  $('hopCapNhat').classList.remove('mo');
+  if (cnBoTienDo) { cnBoTienDo(); cnBoTienDo = null; }
+}
+
+async function cnKiemTra() {
+  cnUrl = null;
+  $('cnTai').hidden = true;
+  $('cnMoTrang').hidden = true;
+  $('cnKhoiTD').hidden = true;
+  $('cnThan').innerHTML = 'Đang hỏi GitHub…';
+  cnMo();
+
+  let r;
+  try { r = await window.vom.kiemCapNhat(); }
+  catch (e) { r = { ok: false, loi: String(e && e.message || e) }; }
+
+  if (!r || !r.ok) {
+    $('cnThan').innerHTML = `<div class="cn-ver cn-loi">Không kiểm tra được</div>
+      <div>${esc((r && r.loi) || 'lỗi không rõ')}</div>`;
+    return;
+  }
+
+  const hien = esc(r.hienTai), moi = esc(r.moiNhat);
+  if (r.trangThai === 'da-moi-nhat') {
+    $('cnThan').innerHTML = `<div class="cn-ver cn-moi">✅ Đang dùng bản mới nhất</div>
+      <div>Bản trên máy: <b>v${hien}</b> — không có gì cần cập nhật.</div>`;
+    $('cnMoTrang').hidden = false;
+    return;
+  }
+
+  // Co ban khac -> cho tai. Ban CU HON phai goi dung ten, khong duoc de nguoi dung bam
+  // "cap nhat" roi tu dung tut ve ban cu ma khong biet.
+  const laCu = r.trangThai === 'ban-cu-hon';
+  $('cnThan').innerHTML =
+    `<div class="cn-ver ${laCu ? 'cn-cu' : 'cn-moi'}">${laCu ? '⚠ Bản trên GitHub CŨ HƠN' : '🎉 Có bản mới'}</div>
+     <div>Trên máy <b>v${hien}</b> → trên GitHub <b>v${moi}</b>${
+       laCu ? ' — bấm tải là <b>hạ về bản cũ</b>, chỉ làm khi bản mới bị lỗi.' : ''}</div>
+     ${r.tenFile ? `<div style="color:var(--chu-2);font-size:11.5px;margin-top:3px">${esc(r.tenFile)}${
+       r.coBytes ? ' · ' + Math.round(r.coBytes / 1048576) + ' MB' : ''}</div>` : ''}
+     ${r.dongGoi === false ? '<div class="cn-cu" style="margin-top:8px">⚠ Bạn đang chạy bản phát triển '
+       + '(chưa đóng gói) nên chỉ kiểm tra được, không tải thay được.</div>' : ''}
+     ${r.ghiChu ? `<div style="margin-top:10px;color:var(--chu-2);font-size:11.5px">Có gì mới:</div>
+       <pre>${esc(r.ghiChu.slice(0, 4000))}</pre>` : ''}`;
+  cnUrl = r.url || null;
+  $('cnTai').hidden = !cnUrl || r.dongGoi === false;
+  $('cnTai').textContent = laCu ? '⬇ Tải và hạ về bản này' : '⬇ Tải và cập nhật';
+  $('cnMoTrang').hidden = false;
+}
+
+async function cnTaiVe() {
+  if (!cnUrl) return;
+  $('cnTai').disabled = true;
+  $('cnKhoiTD').hidden = false;
+  $('cnTD').style.width = '0%';
+  $('cnPhanTram').textContent = '0%';
+  cnBoTienDo = window.vom.khiTienDoTai((pt) => {
+    $('cnTD').style.width = pt + '%';
+    $('cnPhanTram').textContent = pt + '%';
+  });
+
+  let r;
+  try { r = await window.vom.taiCapNhat(cnUrl); }
+  catch (e) { r = { ok: false, loi: String(e && e.message || e) }; }
+
+  if (r && r.ok) {
+    $('cnThan').innerHTML = `<div class="cn-ver cn-moi">✅ Tải xong — đang thay file</div>
+      <div>App sẽ <b>tự tắt rồi mở lại</b> sau vài giây. Nếu sau 30 giây không thấy mở lại,
+      bấm đúp <b>VoiceOrMusic.exe</b> như bình thường.</div>`;
+    $('cnTai').hidden = true;
+  } else {
+    $('cnThan').innerHTML = `<div class="cn-ver cn-loi">Cập nhật thất bại</div>
+      <div>${esc((r && r.loi) || 'lỗi không rõ')}</div>`;
+    $('cnTai').disabled = false;
+  }
+}
+
+$('nutCapNhat').onclick = cnKiemTra;
+$('cnDong').onclick = cnDong;
+$('cnTai').onclick = cnTaiVe;
+$('cnMoTrang').onclick = () => window.vom.moNgoai('https://github.com/datkhac009/VoiceOrMusic_Release/releases');

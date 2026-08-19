@@ -1,6 +1,6 @@
 # VoiceOrMusic — lọc sound TikTok theo giọng người
 
-**Phiên bản hiện tại: 0.9.0** — xem [CHANGELOG.md](CHANGELOG.md) để biết bản nào có gì.
+**Phiên bản hiện tại: 0.10.0** — xem [CHANGELOG.md](CHANGELOG.md) để biết bản nào có gì.
 Số phiên bản hiện ở 4 chỗ: thanh tiêu đề cửa sổ, huy hiệu cạnh tên app trong giao diện, đầu báo
 cáo dòng lệnh, và đầu trang bộ kiểm chứng. File `.exe` cũng mang đúng số đó trong Properties.
 
@@ -24,6 +24,27 @@ quyền — xem mục *Cần kiểm tay*.
 
 **Rap vẫn bị LOẠI.** Phân biệt bằng: giọng nói phủ gần kín clip mà vẫn có tiếng hát → chính
 người đó hát/rap; giọng nói có đứt quãng → đang nói đè lên một bản nhạc.
+
+## ⭮ Tự cập nhật
+
+Cạnh huy hiệu phiên bản có nút **⭮ Cập nhật**. Bấm → app hỏi GitHub → hiện ngay *"Đang dùng bản
+mới nhất"* hoặc *"Có bản mới v0.9.0 → v0.10.0"* kèm dung lượng và ghi chú phát hành. Bấm
+**⬇ Tải và cập nhật** là nó tải theo %, thay file rồi **tự mở lại**.
+
+Bốn điều đã trả giá bên bản crawler nên ở đây làm sẵn:
+
+- **Repo phát hành phải PUBLIC** — updater gọi GitHub **ẩn danh**, vì nhúng token vào `.exe`
+  (file phát tán nhiều máy) là coi như lộ. Repo private trả 404 → bên crawler tính năng này chết hẳn.
+- **Máy có AV/proxy chặn SSL** → dùng agent bỏ qua xác minh, không thì một số máy không bao giờ
+  cập nhật được mà không hiểu vì sao.
+- **Bẫy Job Object của Electron** — bug thật *"tải 100% xong đóng luôn không mở lại"*, chỉ xảy ra
+  trên một số máy. Phải `spawn` detached **trước** khi `app.quit()`.
+- **Dán cả URL / thừa dấu `/`** → tự cắt về đúng `Owner/Repo`. Đo thật: `Owner/Repo` → 200,
+  `Owner/Repo/` → **404**.
+
+Bản trên GitHub **cũ hơn** thì hộp gọi đúng tên (*"⚠ Bản trên GitHub CŨ HƠN"*, nút đổi thành
+*"Tải và hạ về bản này"*) — tiện khi một bản mới bị lỗi, nhưng không để bấm nhầm mà tụt version.
+Bản phát triển (`npm start`) kiểm tra được nhưng không tải thay được, và hộp nói rõ điều đó.
 
 ## Dùng — 2 cách
 

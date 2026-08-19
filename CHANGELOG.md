@@ -12,6 +12,51 @@ bắt đầu và lúc xong.
 
 ---
 
+## 0.10.0 — 2026-08-19
+
+**⭮ Tự cập nhật trong app — hết phải tải tay**
+
+Cạnh huy hiệu phiên bản có nút **⭮ Cập nhật**. Bấm → app hỏi GitHub → hiện ngay:
+
+- **✅ Đang dùng bản mới nhất** (kèm số bản đang chạy), hoặc
+- **🎉 Có bản mới** `v0.9.0 → v0.10.0`, tên file, dung lượng, và **toàn bộ ghi chú phát hành**
+
+Bấm **⬇ Tải và cập nhật** → thanh tiến độ theo %, tải xong app **tự tắt rồi mở lại** ở bản mới.
+
+**Chép lại 4 bài học đã trả giá bên crawler, không tự phát minh lại:**
+
+1. **Repo phát hành phải PUBLIC.** Updater gọi GitHub **ẩn danh** — không nhúng token vào
+   `.exe` vì file đó phát tán nhiều máy, nhúng vào là coi như lộ. Repo private trả 404 →
+   bên crawler tính năng này **chết hẳn**, phải đi thay `.exe` tay từng máy.
+   `VoiceOrMusic_Release` đang public nên chạy được.
+2. **Máy có AV/proxy chặn SSL** làm Node báo *"unable to verify the first certificate"* →
+   phải dùng agent bỏ qua xác minh, không thì một số máy không bao giờ cập nhật được mà
+   không hiểu vì sao.
+3. **Bẫy Job Object của Electron** — bug thật: *"tải 100% xong đóng luôn không mở lại"*, và
+   **chỉ xảy ra trên một số máy** (đua thời gian, phụ thuộc tốc độ máy). Electron gom tiến
+   trình con vào một Job Object có cờ "giết hết con khi cha thoát"; nếu `app.quit()` dọn job
+   trước khi `cmd` kịp thoát ly thì file `.bat` bị giết ngay. Fix: `spawn` với
+   `detached:true` + `unref()` **trước** khi quit.
+4. **Người dùng dán cả URL / thừa dấu gạch chéo.** Đo thật bên crawler: `Owner/Repo` → HTTP
+   200, `Owner/Repo/` → **HTTP 404** (app báo "không tìm thấy release", chẳng ai hiểu vì
+   sao). Nay nhận cả URL GitHub, thừa `/`, thừa khoảng trắng, cả link `/releases/tag/...` —
+   tự cắt về đúng `Owner/Repo`. Có 15 test riêng canh chỗ này.
+
+**Bản trên GitHub cũ hơn thì gọi đúng tên.** Không gộp vào "có bản mới": hộp hiện
+**⚠ Bản trên GitHub CŨ HƠN** và nút đổi thành *"Tải và hạ về bản này"* — hữu ích khi một bản
+mới bị lỗi, nhưng không để bạn bấm nhầm rồi tụt version mà không biết.
+
+**Bản phát triển** (chạy `npm start`) kiểm tra được nhưng không tải thay được — hộp nói rõ
+điều đó thay vì để bạn bấm rồi mới biết.
+
+Thêm `test/updater.test.js` (**35 test**) và gắn vào `npm test` — tức `build.bat` sẽ chặn build
+nếu phần này hỏng.
+
+⚠ **Lần này vẫn phải tải tay một lần.** Bản 0.9.0 bạn đang dùng chưa có nút cập nhật; tải
+`VoiceOrMusic.exe` của 0.10.0 về thay một lần, từ đó về sau bấm nút trong app là xong.
+
+---
+
 ## 0.9.0 — 2026-08-16
 
 **🧠 Kho học giờ TỰ SỬA, không chỉ cảnh báo nữa**

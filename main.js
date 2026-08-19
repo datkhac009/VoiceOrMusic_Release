@@ -23,6 +23,7 @@ const {
 } = require('./src/soundlink.cjs');
 const { aggregate, quyetDinhCuoi, chamHaiLuot, dacTrung, timCaDaSua } = require('./src/classify.cjs');
 const { parseArgv, userArgv } = require('./src/cli-args.cjs');
+const { kiemTraCapNhat, taiVaCapNhat, REPO_MAC_DINH } = require('./src/updater.cjs');
 
 // Ghi nhat ky DONG BO ra file khi dat bien moi truong VOM_LOG.
 // Can den muc nay vi app.exit() la thoat CUNG: no khong xa bo dem, nen console.error co the
@@ -924,6 +925,23 @@ function moGiaoDien(opt) {
       return { error: String(e && e.message || e) };
     }
   });
+  // ════════════════════════ TU CAP NHAT ════════════════════════
+  // Nguoi dung bam "Cap nhat" -> hoi GitHub -> bao co ban moi hay chua -> bam tai.
+  ipcMain.handle('ui:kiem-cap-nhat', async () => {
+    const r = await kiemTraCapNhat({
+      phienBanHienTai: require('./package.json').version,
+      repo: process.env.UPDATE_REPO || REPO_MAC_DINH,
+    });
+    // Ban chua dong goi thi KIEM duoc nhung TAI thi khong (khong co exe de thay) — noi truoc
+    // de nguoi dung khoi bam roi moi biet.
+    return { ...r, dongGoi: app.isPackaged };
+  });
+
+  ipcMain.handle('ui:tai-cap-nhat', async (_e, { url } = {}) => taiVaCapNhat({
+    downloadUrl: url,
+    onTienDo: (pt) => { if (!win.isDestroyed()) win.webContents.send('ui:tien-do-tai', pt); },
+  }));
+
   ipcMain.handle('ui:stop', () => { stopRequested = true; return true; });
   ipcMain.handle('ui:start', async (_e, { links, seconds, loaiBanQuyen, loaiPhim, hocTuSua }) => {
     if (dangChay) return { error: 'dang chay roi' };

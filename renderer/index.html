@@ -68,6 +68,37 @@ h1 { margin: 0; font-size: 15.5px; font-weight: 650; letter-spacing: -.01em;
   border: 1px solid color-mix(in oklab, var(--nhan) 32%, transparent);
   border-radius: 99px; padding: 1.5px 8px; letter-spacing: .02em;
 }
+/* Nut cap nhat nam canh huy hieu phien ban — dung cho nguoi dung tim: cau hoi
+   "may dang o ban nao / co ban moi chua" la mot cau hoi, nen de canh nhau. */
+.nut-cn { margin-left: 4px; padding: 3px 10px; font-size: 11px; font-weight: 500;
+          border-radius: 99px; background: var(--nen-2); border: 1px solid var(--vien-sang);
+          color: var(--chu-2); }
+.nut-cn:hover:not(:disabled) { color: var(--chu); }
+
+#hopCapNhat { display: none; position: fixed; inset: 0; z-index: 40;
+              align-items: center; justify-content: center;
+              background: rgba(6, 8, 12, .62); backdrop-filter: blur(3px); }
+#hopCapNhat.mo { display: flex; }
+.cn-hop { width: min(560px, 92vw); max-height: 82vh; display: flex; flex-direction: column;
+          background: var(--nen-1); border: 1px solid var(--vien-sang);
+          border-radius: 13px; box-shadow: 0 18px 50px -12px rgba(0,0,0,.7);
+          animation: truot .16s ease-out; }
+.cn-dau { display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+          border-bottom: 1px solid var(--vien); }
+.cn-dau b { font-size: 13.5px; }
+.cn-dau .nutX { margin-left: auto; }
+.cn-than { padding: 14px; overflow: auto; font-size: 13px; line-height: 1.6; }
+.cn-than .cn-ver { font-size: 15px; font-weight: 650; margin-bottom: 6px; }
+.cn-than .cn-moi { color: var(--tot); }
+.cn-than .cn-cu { color: var(--canh); }
+.cn-than .cn-loi { color: var(--xau); }
+.cn-than pre { white-space: pre-wrap; word-break: break-word; font: 11.5px/1.55 "Cascadia Mono", Consolas, monospace;
+               background: var(--nen-0); border: 1px solid var(--vien); border-radius: 8px;
+               padding: 9px 11px; max-height: 34vh; overflow: auto; color: var(--chu-2); }
+.cn-td { display: flex; align-items: center; gap: 10px; padding: 0 14px 10px; }
+.cn-td #cnPhanTram { font-size: 11.5px; color: var(--chu-2); font-weight: 600; min-width: 38px; text-align: right; }
+.cn-chan { display: flex; gap: 8px; padding: 11px 14px; border-top: 1px solid var(--vien); }
+
 .phu { color: var(--chu-2); font-size: 12px; margin-top: 4px; }
 .phu b { color: var(--chu); font-weight: 600; }
 
@@ -343,7 +374,9 @@ footer {
 <body>
 
 <header>
-  <h1>VoiceOrMusic <span id="phienBan" class="pb">…</span></h1>
+  <h1>VoiceOrMusic <span id="phienBan" class="pb">…</span>
+    <button id="nutCapNhat" class="nut-cn" title="Kiểm tra xem có bản mới trên GitHub không">⭮ Cập nhật</button>
+  </h1>
   <div class="phu">Chỉ giữ sound có <b>người nói</b> (kể cả có nhạc nền không lời).
     Loại: hát, rap, nhạc, nhạc nền có lời, voice phim/hoạt hình.</div>
 </header>
@@ -409,6 +442,25 @@ footer {
 </footer>
 
 <div id="manDem"></div>
+<!-- Hop CAP NHAT. Dung chung man dem voi panel de khong co hai lop mo nen chong nhau. -->
+<div id="hopCapNhat">
+  <div class="cn-hop">
+    <div class="cn-dau">
+      <b>⭮ Cập nhật</b>
+      <button class="nutX" id="cnDong" title="Đóng (Esc)">✕</button>
+    </div>
+    <div class="cn-than" id="cnThan">Đang hỏi GitHub…</div>
+    <div class="cn-td" id="cnKhoiTD" hidden>
+      <div class="thanh"><i id="cnTD"></i></div>
+      <span id="cnPhanTram">0%</span>
+    </div>
+    <div class="cn-chan">
+      <button id="cnTai" class="chinh" hidden>⬇ Tải và cập nhật</button>
+      <button id="cnMoTrang" hidden>↗ Mở trang phát hành</button>
+    </div>
+  </div>
+</div>
+
 <div id="panel">
   <div class="p-dau">
     <b id="pTen">—</b>

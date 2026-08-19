@@ -37,6 +37,15 @@ contextBridge.exposeInMainWorld('vom', {
   danhDau: (row, tinhTrang) => ipcRenderer.invoke('ui:danh-dau', { row, tinhTrang }),
   khoHoc: (tuyChon) => ipcRenderer.invoke('ui:kho-hoc', tuyChon || {}),
 
+  // Tu cap nhat qua GitHub Releases.
+  kiemCapNhat: () => ipcRenderer.invoke('ui:kiem-cap-nhat'),
+  taiCapNhat: (url) => ipcRenderer.invoke('ui:tai-cap-nhat', { url }),
+  khiTienDoTai: (fn) => {
+    const h = (_e, pt) => fn(pt);
+    ipcRenderer.on('ui:tien-do-tai', h);
+    return () => ipcRenderer.off('ui:tien-do-tai', h);
+  },
+
   // Dang ky nhan tin tuc trong luc chay. Tra ve ham go dang ky de khong dinh ro ri.
   khiTienDo: (fn) => {
     const h = (_e, d) => fn(d);
