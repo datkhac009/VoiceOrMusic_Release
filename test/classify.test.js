@@ -529,6 +529,51 @@ function rep(n, w) { return Array.from({ length: n }, () => w); }
     check('ca da day trung y may -> khong tu sua',
       !quyetDinhCuoi(A, { caDaSua: timCaDaSua(A, khoTrung) }).boiHoc);
   }
+  console.log('\n=== 8h. TAI KHOAN CO TICH XANH -> LOAI ===');
+  {
+    const { quyetDinhCuoi } = require('../src/classify.cjs');
+    const w = (o) => ({ speech: 0, singing: 0, music: 0, quiet: 0, top: 'x', ...o });
+    const rep = (n, x) => Array.from({ length: n }, () => x);
+    const A = aggregate([...rep(10, w({ speech: 0.8, music: 0.8 })), ...rep(10, w({ music: 0.8 }))]);
+    const meta = (v, laChu) => ({
+      original: true, laChuSound: laChu,
+      tacGia: { uniqueId: 'lufthansa', nickName: 'Lufthansa', verified: v },
+    });
+
+    check('may tu cham la LAY (de thay luat tich xanh moi la thu lat)', A.accept === true, A.label);
+
+    // ⚠ LOI THAT 2026-08-19: truong `verified` duoc doc va HIEN ra trong panel nhung KHONG
+    // he dung de loai -> sound "original sound — Lufthansa" cua @lufthansa (tich xanh) van
+    // duoc LAY. Yeu cau tu dau da ghi: "sound co tich xanh thi auto la Loai".
+    // `banQuyen` khong bat duoc vi no chi doc original === false (nhac catalog); tai khoan
+    // tich xanh dang "original sound" cua chinh ho thi original === true -> lot het.
+    const q = quyetDinhCuoi(A, meta(true, true));
+    check('chu sound co tich xanh -> LOAI', q.lay === false && q.tinhTrang === 0, `lay=${q.lay}`);
+    check('  ... co co tichXanh de giao dien hien', q.tichXanh === true);
+    check('  ... ly do noi ro la tich xanh', /TICH XANH/i.test(q.lyDoLoai), q.lyDoLoai);
+
+    check('chu sound KHONG tich xanh -> van LAY', quyetDinhCuoi(A, meta(false, true)).lay === true);
+
+    // ⚠ Chi xet khi la CHU SOUND. Nguoi noi tieng DUNG sound cua nguoi khac thi khong duoc
+    // keo ca sound do xuong theo.
+    check('tich xanh nhung KHONG phai chu sound -> van LAY',
+      quyetDinhCuoi(A, meta(true, false)).lay === true);
+
+    // ⚠ null = KHONG DOC DUOC, khong duoc coi la co tich. Neu khong, mot lan TikTok doi cau
+    // truc du lieu la loai sach ca danh sach ma khong ai hieu vi sao.
+    check('khong doc duoc tich xanh (null) -> van LAY',
+      quyetDinhCuoi(A, meta(null, true)).lay === true);
+    check('thieu ca truong tacGia -> van LAY',
+      quyetDinhCuoi(A, { original: true, laChuSound: true }).lay === true);
+
+    // Tich xanh di cung cong tac "Loai nhac co ban quyen" — tat cong tac thi tha.
+    check('tat o "Loai nhac co ban quyen" -> tha ca tich xanh',
+      quyetDinhCuoi(A, meta(true, true), { loaiBanQuyen: false }).lay === true);
+
+    // Nguoi dung bam tay van THANG moi luat.
+    check('ban bam tay LAY -> thang luat tich xanh',
+      quyetDinhCuoi(A, meta(true, true), { nguoiDung: 1 }).lay === true);
+  }
   console.log('\n=== 9. stats phai du de GIAI THICH ket qua cho nguoi dung ===');
   {
     const r = aggregate(rep(15, win({ 'Music': 0.9, 'Techno': 0.8, 'Speech': 0.02 })));

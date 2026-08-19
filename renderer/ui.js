@@ -63,6 +63,7 @@ function veBang() {
         : r.boiHoc ? '<div class="co-nho hoc">🧠 tự sửa theo ca đã dạy</div>' : ''}</td>
       <td>
         <div class="nhan-chinh">${ICON[r.label] || ''} ${esc(r.labelVi || '')}</div>
+        ${r.tichXanh ? '<div class="co-nho">✔ tài khoản tích xanh</div>' : ''}
         ${r.banQuyen ? '<div class="co-nho">🔒 có bản quyền</div>' : ''}
         ${r.nghiPhim ? `<div class="co-nho">${r.meta?.nguon === 'tai khoan dong vai'
           ? '🎭 tài khoản đóng vai' : r.meta?.nguon === 'caption'

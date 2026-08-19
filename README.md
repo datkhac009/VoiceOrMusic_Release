@@ -1,6 +1,6 @@
 # VoiceOrMusic — lọc sound TikTok theo giọng người
 
-**Phiên bản hiện tại: 0.10.0** — xem [CHANGELOG.md](CHANGELOG.md) để biết bản nào có gì.
+**Phiên bản hiện tại: 0.11.0** — xem [CHANGELOG.md](CHANGELOG.md) để biết bản nào có gì.
 Số phiên bản hiện ở 4 chỗ: thanh tiêu đề cửa sổ, huy hiệu cạnh tên app trong giao diện, đầu báo
 cáo dòng lệnh, và đầu trang bộ kiểm chứng. File `.exe` cũng mang đúng số đó trong Properties.
 
@@ -95,6 +95,12 @@ thẳng sang Sheet là lọc được ngay.
 nhạc catalog / có bản quyền  ->  "original": ""
 sound do người dùng tạo      ->  "original": true
 ```
+
+**Tài khoản có tích xanh → LOẠI.** Ô này cũng bắt luôn trường hợp chủ sound có tích xanh —
+trường `verified` đọc thẳng từ TikTok, không cần nhìn hình. Ba chốt an toàn: chỉ xét **tài khoản
+chủ sound** (người nổi tiếng *dùng* sound của người khác thì không kéo sound đó xuống);
+`verified` phải đúng `true` (không đọc được → **không** coi là có tích, để một lần TikTok đổi cấu
+trúc dữ liệu không loại sạch cả danh sách); và bạn bấm tay vẫn thắng mọi luật.
 
 Sound `original: ""` bị gán `0` **kể cả khi nghe ra là giọng người** — đúng yêu cầu "sound có
 tích xanh thì auto Loại". Bảng vẫn hiện nhãn nghe được kèm dấu 🔒 nên nhìn là biết vì sao bị loại.

@@ -672,7 +672,8 @@ function dungBaoCao(rows, opt) {
     }
     const verdict = r.lay ? '✅ LẤY ' : '❌ LOẠI';
     console.log(`${verdict}  [${r.lay ? 1 : 0}]  ${ICON[r.label] || ''} ${r.labelVi}`
-      + `   (tin cay ${Math.round(r.confidence * 100)}%)${r.banQuyen ? '  🔒 CO BAN QUYEN' : ''}`);
+      + `   (tin cay ${Math.round(r.confidence * 100)}%)${r.tichXanh ? '  ✔ TICH XANH' : ''}`
+      + `${r.banQuyen ? '  🔒 CO BAN QUYEN' : ''}`);
     console.log(`   ${head}${r.meta && r.meta.authorName ? ' — ' + r.meta.authorName : ''}`);
     if (r.soundUrl) console.log(`   ${r.soundUrl}`);
     // Khi am thanh cho LAY ma van bi loai (ban quyen / phim / tai khoan dong vai) thi

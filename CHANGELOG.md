@@ -12,6 +12,64 @@ bắt đầu và lúc xong.
 
 ---
 
+## 0.11.0 — 2026-08-19
+
+**Sửa lỗi: tài khoản CÓ TÍCH XANH vẫn được LẤY**
+
+Bạn gửi ảnh `original sound — Lufthansa` của **@lufthansa (có tích xanh)** mà máy vẫn chấm LẤY.
+Yêu cầu từ đầu đã ghi rõ *"sound có tích xanh thì auto là Loại"*.
+
+Nguyên nhân: trường `verified` **được đọc từ TikTok và hiện ra** trong panel
+(`✔ tài khoản tích xanh`) nhưng **chưa bao giờ dùng để loại**. Luật bản quyền cũ chỉ xét
+`original === false` (nhạc catalog của TikTok) — mà tài khoản tích xanh đăng bài bằng
+*"original sound" của chính họ* thì `original === true`, nên lọt qua hết.
+
+Nay tích xanh → **LOẠI**, đi cùng ô *"Loại nhạc có bản quyền"* (cùng trả lời một câu hỏi:
+sound này có rủi ro bản quyền không). Ba chốt an toàn:
+
+- **Chỉ xét tài khoản CHỦ SOUND.** Một người nổi tiếng *dùng* sound của người khác thì không
+  kéo cả sound đó xuống theo.
+- **`verified` phải đúng `true`.** Giá trị `null` = không đọc được → **không** coi là có tích;
+  một lần TikTok đổi cấu trúc dữ liệu là loại sạch cả danh sách.
+- Bạn bấm tay vẫn thắng mọi luật.
+
+Bảng và báo cáo dòng lệnh đều hiện `✔ tài khoản tích xanh` để nhìn là biết vì sao bị loại.
+Thêm 10 test riêng cho luật này.
+
+**Kho học: đã có từ 0.9.0 và đang chạy**
+
+Kiểm kho thật trên máy bạn — có 3 ca đã ghi, gồm đúng ca trong ảnh:
+
+```
+máy chấm voice_bgm -> LẤY | bạn chọn LOẠI | vân tay: 0.47 0.00 0.82 0.02 0.00
+```
+
+(khớp số liệu trong ảnh: nói 48% · hát 0% · nhạc 83%). Sound nào sau này gần giống sẽ được
+cảnh báo, và nếu trùng khít (≤ 0.05) thì **tự sửa**. Nhưng gốc của ca Lufthansa không phải
+kho học — mà là thiếu hẳn luật tích xanh, nên đã sửa ở trên.
+
+**Đã đo và KHÔNG dùng: nhận diện "cầm mic" bằng hình**
+
+Bạn muốn nhận diện bằng **hình trong video**, không phải hashtag. Đo từng thứ:
+
+| yêu cầu | cách làm | kết quả đo |
+|---|---|---|
+| **có tích xanh** | không cần nhìn hình — TikTok trả sẵn `verified` | ✅ **đã làm** (mục trên) |
+| **cầm mic hát** | ImageNet-1000 (EfficientNet-Lite) có lớp `microphone` | nhãn `microphone` chỉ ra ở **1/13** clip phỏng vấn (điểm **0.04**) và **1/29** sound thường (**0.059** — cao hơn!) → vô dụng |
+| **đang phỏng vấn** | EfficientDet đếm người trong khung | bắt 6/13 nhưng **loại oan 4/29 (14%)**; đếm khuôn mặt: **0/13** |
+
+Vì sao bộ phân loại ảnh vô dụng ở đây: nó chấm khung hình TikTok ra *"web site", "cash
+machine", "American alligator", "guillotine", "piggy bank"* — ImageNet được huấn luyện trên
+**ảnh chụp vật thể**, không phải khung hình video dọc có chữ đè lên. COCO thì **không có** lớp
+microphone.
+
+⚠ Và một giới hạn nữa cần nói rõ: app hiện chỉ có **ảnh khung hình bìa**, không có video. Muốn
+"nhìn trong video" thật thì phải tải cả video (5–20 MB/clip thay vì ~1 MB audio) và lấy nhiều
+khung — chưa kể vẫn cần một model hoạt động được trên loại khung hình này, mà không model sẵn
+có nào làm được.
+
+---
+
 ## 0.10.0 — 2026-08-19
 
 **⭮ Tự cập nhật trong app — hết phải tải tay**

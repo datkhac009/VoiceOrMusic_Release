@@ -1,6 +1,6 @@
 {
   "name": "voice-or-music",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
   "description": "Loc sound TikTok theo giong nguoi noi (YAMNet)",
   "main": "main.js",

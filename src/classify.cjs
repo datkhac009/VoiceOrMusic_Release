@@ -535,6 +535,23 @@ function quyetDinhCuoi(kq, meta = {}, opt = {}) {
   // danh sach bi loai sach ma khong ai hieu vi sao.
   const banQuyen = meta.original === false;
 
+  // ── TAI KHOAN CO TICH XANH -> LOAI ──────────────────────────────────────────────
+  // ⚠ LOI DA XAY RA (2026-08-19): truong `verified` duoc doc tu TikTok va HIEN ra trong
+  // panel ("✔ tai khoan tich xanh") nhung KHONG he dung de loai. Ket qua: sound
+  // "original sound — Lufthansa" cua @lufthansa (tich xanh) van duoc LAY, nguoi dung
+  // phai bam tay. Yeu cau ban dau ghi ro: "sound co tich xanh thi auto la Loai".
+  //
+  // Vi sao `banQuyen` khong bat duoc: no chi doc `original === false` (nhac catalog cua
+  // TikTok). Tai khoan tich xanh dang bai bang "original sound" CUA CHINH HO thi
+  // original === true -> lot qua het.
+  //
+  // ⚠ CHI xet khi day la tai khoan CHU SOUND (laChuSound). Neu khong, mot nguoi noi tieng
+  // dung sound cua nguoi khac se keo ca sound do xuong theo — sai han y.
+  // Va `verified` phai dung `=== true`: gia tri null nghia la KHONG DOC DUOC, khong duoc
+  // coi la co tich (mot lan TikTok doi cau truc du lieu la loai sach ca danh sach).
+  const tichXanh = meta.laChuSound === true
+    && !!meta.tacGia && meta.tacGia.verified === true;
+
   // ── VOICE PHIM / HOAT HINH ──────────────────────────────────────────────────────
   // Voice trong phim va anime VAN LA giong nguoi nen model audio khong tach duoc — no se
   // cham "Giọng nói" hoac "Giọng nói + nhạc nền" va cho LAY. Dau hieu duy nhat doc duoc la
@@ -542,7 +559,9 @@ function quyetDinhCuoi(kq, meta = {}, opt = {}) {
   const loaiPhim = opt.loaiPhim !== false;      // mac dinh BAT
   const nghiPhim = meta.nghiPhim === true;
 
-  const lay = !!kq.accept && !(loaiBanQuyen && banQuyen) && !(loaiPhim && nghiPhim);
+  // Tich xanh di CUNG cong tac "Loai nhac co ban quyen" — ca hai deu tra loi cung mot cau
+  // hoi cua nguoi dung: "sound nay co rui ro ban quyen khong".
+  const lay = !!kq.accept && !(loaiBanQuyen && (banQuyen || tichXanh)) && !(loaiPhim && nghiPhim);
   let lyDoLoai = '';
   if (!lay) {
     if (kq.accept && loaiPhim && nghiPhim) {
@@ -551,12 +570,14 @@ function quyetDinhCuoi(kq, meta = {}, opt = {}) {
       lyDoLoai = meta.nguon === 'tai khoan dong vai'
         ? `tai khoan dong vai nhan vat (${tu || 'dau hieu tai khoan'})`
         : `voice phim/hoat hinh (${meta.nguon || 'dau hieu'}${tu ? ': ' + tu : ''})`;
+    } else if (kq.accept && tichXanh) {
+      lyDoLoai = `tai khoan CO TICH XANH (@${(meta.tacGia && meta.tacGia.uniqueId) || '?'})`;
     } else if (kq.accept && banQuyen) {
       lyDoLoai = 'nhac co ban quyen (TikTok danh dau khong phai original sound)';
     } else lyDoLoai = kq.labelVi || 'khong dat';
   }
-  return { banQuyen, nghiPhim, lay, tinhTrang: lay ? 1 : 0, boiNguoiDung: false, lyDoLoai,
-           ...ghiChuKhongChac(kq, meta, opt) };
+  return { banQuyen, tichXanh, nghiPhim, lay, tinhTrang: lay ? 1 : 0, boiNguoiDung: false,
+           lyDoLoai, ...ghiChuKhongChac(kq, meta, opt) };
 }
 
 /**
