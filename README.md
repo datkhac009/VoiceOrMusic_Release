@@ -1,6 +1,6 @@
 # VoiceOrMusic — lọc sound TikTok theo giọng người
 
-**Phiên bản hiện tại: 0.11.0** — xem [CHANGELOG.md](CHANGELOG.md) để biết bản nào có gì.
+**Phiên bản hiện tại: 0.11.1** — xem [CHANGELOG.md](CHANGELOG.md) để biết bản nào có gì.
 Số phiên bản hiện ở 4 chỗ: thanh tiêu đề cửa sổ, huy hiệu cạnh tên app trong giao diện, đầu báo
 cáo dòng lệnh, và đầu trang bộ kiểm chứng. File `.exe` cũng mang đúng số đó trong Properties.
 

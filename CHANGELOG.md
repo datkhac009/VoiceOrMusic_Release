@@ -12,6 +12,21 @@ bắt đầu và lúc xong.
 
 ---
 
+## 0.11.1 — 2026-08-19
+
+**Bỏ làm mờ nền khi mở panel — bảng phía sau sáng và đọc được**
+
+Panel bên phải trước đây phủ nền bằng `rgba(6,8,12,.6)` + `backdrop-filter: blur(3px)`. Nhìn thì
+"sang" nhưng sai việc: panel này **không phải hộp thoại đòi trả lời**, nó là chỗ *xem thêm* cho
+một dòng đang nằm trong bảng — bạn vẫn đọc bảng trong lúc panel mở (đối chiếu dòng này với dòng
+khác, tìm dòng kế tiếp để bấm). Làm mờ + tối 60% thì cả bảng không đọc được.
+
+Nay bỏ hẳn `blur()`, lớp tối hạ từ **0.6 → 0.18** — vừa đủ để biết panel đang ở trên, không làm
+mờ chữ. Hộp **Cập nhật** cũng bỏ blur nhưng giữ lớp tối (0.55) vì đó là hộp thoại thật, cần tập
+trung vào một quyết định.
+
+---
+
 ## 0.11.0 — 2026-08-19
 
 **Sửa lỗi: tài khoản CÓ TÍCH XANH vẫn được LẤY**

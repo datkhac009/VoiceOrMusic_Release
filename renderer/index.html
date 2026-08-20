@@ -77,7 +77,9 @@ h1 { margin: 0; font-size: 15.5px; font-weight: 650; letter-spacing: -.01em;
 
 #hopCapNhat { display: none; position: fixed; inset: 0; z-index: 40;
               align-items: center; justify-content: center;
-              background: rgba(6, 8, 12, .62); backdrop-filter: blur(3px); }
+              /* Khong blur (xem ghi chu o #manDem). Van giu lop toi vi day la hop thoai
+                 that — no doi mot quyet dinh, khong phai cho xem them. */
+              background: rgba(6, 8, 12, .55); }
 #hopCapNhat.mo { display: flex; }
 .cn-hop { width: min(560px, 92vw); max-height: 82vh; display: flex; flex-direction: column;
           background: var(--nen-1); border: 1px solid var(--vien-sang);
@@ -336,7 +338,14 @@ footer {
            text-align: right; line-height: 1.75; }
 
 /* ── Mini browser ─────────────────────────────────────────────────────── */
-#manDem { position: fixed; inset: 0; background: rgba(6,8,12,.6); backdrop-filter: blur(3px);
+/* ⚠ KHONG blur va KHONG lam toi manh o day.
+   Ban dau: rgba(6,8,12,.6) + backdrop-filter: blur(3px) — nhin thi "sang trong" nhung sai
+   viec: panel nay KHONG phai hop thoai doi tra loi, no la cho XEM THEM cho mot dong dang
+   nam trong bang. Nguoi dung van doc bang trong luc panel mo (doi chieu dong nay voi dong
+   khac, tim dong ke tiep de bam). Blur + toi 60% lam ca bang khong doc duoc — dung tra gia
+   do de lay mot hieu ung.
+   Chi con mot lop toi RAT NHE, du de biet panel dang o tren, khong lam mo chu. */
+#manDem { position: fixed; inset: 0; background: rgba(6,8,12,.18);
           display: none; z-index: 9; }
 #panel {
   position: fixed; top: 0; right: 0; bottom: 0; width: 468px; z-index: 10;
