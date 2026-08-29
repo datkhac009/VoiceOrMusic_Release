@@ -326,8 +326,27 @@ async function noiTrang(re) {
         // chi tra true khi trong iframe co the <video> dang CHAY va KHONG tat tieng. Main
         // doc duoc dieu do vi no voi vao frame con qua framesInSubtree (renderer thi khong,
         // iframe khac nguon). Xem ghi chu day du ben main.js, cho 'ui:bat-tieng'.
-        check('video trong panel chay kem TIENG chi voi mot cu bam',
-          await c2.js(`window.vom.batTieng()`) === true);
+        // ⚠ Muc nay PHU THUOC MANG. Neu chinh trang nhung dang bi TikTok chan (429/503) thi
+        // khong the co video ma bat tieng — do la loi cua TikTok luc do, khong phai cua app.
+        // Bao FAIL trong truong hop do la bao SAI, nen: do trang thai that roi hay ket luan.
+        {
+          const coTieng = await c2.js(`window.vom.batTieng()`) === true;
+          // Hai le do KHONG phai loi cua app, va deu do duoc:
+          //   * trang nhung bi chan (429/503) -> khong nap duoc player
+          //   * trang ra 200 nhung KHONG CO playAddr -> TikTok khong con cap dia chi phat
+          //     cho video do nua (da gap that: video 7286516660331105541, co videoData ma
+          //     khong co playAddr, trang khong ve lay mot the <video> nao)
+          let vi = '';
+          if (!coTieng) {
+            try {
+              const rn = await fetch(src, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+              if (rn.status !== 200) vi = `TikTok dang chan trang nhung (ma ${rn.status})`;
+              else if (!(await rn.text()).includes('playAddr')) vi = 'TikTok khong con cap playAddr cho video nay';
+            } catch (e) { vi = 'khong hoi duoc trang nhung: ' + e.message; }
+          }
+          if (vi) console.log(`   BO QUA video chay kem TIENG — ${vi}`);
+          else check('video trong panel chay kem TIENG chi voi mot cu bam', coTieng);
+        }
 
         // Nut tra cuu nen tang khac: chi MO TRINH DUYET NGOAI (Google/YouTube chan nhung
         // iframe), nguoi dung tu nhin roi quyet dinh. Kiem truy van dung duoc dung chua.

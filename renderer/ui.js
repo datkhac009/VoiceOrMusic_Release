@@ -252,7 +252,14 @@ async function chay() {
 }
 
 window.vom.khiTienDo(({ i, total, phase, link }) => {
-  datTienDo(Math.round((i / total) * 100));
+  datTienDo(Math.round((Math.min(i, total) / total) * 100));
+  // Luot quet lai khong phai la mot link thu i — dung dem so, va noi ro dang cho vi sao.
+  // (Neu do chung vao nhanh 'else' thi no hien "[13/12] đang chạy YAMNet" — vua sai so
+  //  vua sai viec.)
+  if (phase === 'cho-quet-lai') {
+    $('trangThai').textContent = `⏳ ${link}`;
+    return;
+  }
   const viec = phase === 'fetch' ? 'đang lấy audio' : 'đang chạy YAMNet';
   $('trangThai').textContent = `[${i + 1}/${total}] ${viec}: ${String(link).slice(-34)}`;
 });
@@ -263,8 +270,12 @@ function datTienDo(pt) {
   $('phanTram').textContent = pt + '%';
 }
 
-window.vom.khiCoDong(async ({ row }) => {
-  ketQua.push(row);
+window.vom.khiCoDong(async ({ row, i }) => {
+  // ⚠ THAY theo so thu tu, khong phai luc nao cung them vao cuoi: luot "quet lai link bi
+  // TikTok chan" gui lai dong CU voi dung so i cua no. Neu cu push thi sound do hien HAI
+  // dong — mot dong loi cu va mot dong ket qua moi.
+  if (Number.isInteger(i) && i < ketQua.length) ketQua[i] = row;
+  else ketQua.push(row);
   await capNhatQuyetDinh();
   veBang();
   veTomTat();

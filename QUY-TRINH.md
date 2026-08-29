@@ -399,6 +399,54 @@ Vì sao bỏ đường bắn chuột: nó bấm mù, không biết player nạp 
 video đang chạy lại hoá thành tạm dừng**. Test giao diện có mục kiểm cái này (`batTieng()` chỉ
 trả `true` khi thật sự có thẻ đang chạy và không tắt tiếng).
 
+## 7i. TikTok chặn tạm (429/503) — **không** phải "sound đã xoá"
+
+Người dùng quét một mẻ 51 link, **20 link** báo *"sound đã xoá, chưa có video nào dùng"* —
+trong khi mở trình duyệt thì sound **vẫn còn nguyên, còn 5351 video**. Đo lại từng bước:
+
+```
+sound 7318135118018349855: lần 1 → 429, lần 2 → 503, lần 3 → 503, lần 4 → 200 (7 video)
+sound 7093628948978191110: lần 1 → 503, lần 2 → 503, lần 3 → 200 (8 video)
+```
+
+Tức là TikTok **chặn tạm vì hỏi quá nhanh**, còn tool thì thử **đúng một lần rồi bỏ cuộc** và
+báo nhầm thành "sound đã xoá". Thêm một điều đo được: ngay cả khi trang sound đã ra 200, từng
+video lẻ **vẫn có thể 503** — sound trên phải đến video **thứ ba** mới lấy được `playUrl`.
+
+Ba chỗ đã sửa:
+
+1. **Thử lại có lùi dần** (`httpGetBenBi`) cho những mã tạm thời `0/408/425/429/500/502/503/504`,
+   nghe theo `Retry-After` nếu máy chủ có gửi.
+2. **Phanh chung**: khi đã bị chặn thì hãm nhịp trước mọi yêu cầu sau (400ms → 800 → … tối đa
+   4s), trở lại bình thường thì nới dần. Hơi chậm còn hơn bị chặn rồi mất cả dòng.
+3. **Quét lại cả mẻ**: quét xong, những link hỏng **vì bị chặn** được tự chạy lại (tối đa 2
+   lượt, nghỉ 8s rồi 16s). Chỉ quét lại loại `biChan` — sound xoá thật thì thử bao nhiêu lần
+   cũng thế, quét lại chỉ tốn thời gian.
+
+Và câu báo lỗi nay **tách làm hai**, vì trước đây gộp một câu nên người dùng đọc thấy "sound đã
+xoá" trong khi sound còn nguyên — đó là báo **sai sự thật**:
+
+| Tình huống | Câu báo |
+|---|---|
+| Bị chặn tạm | *TikTok đang chặn tạm (429/503) — sound vẫn còn, bấm Kiểm tra lại sau ít phút* |
+| Không có thật | *không lấy được link file nhạc (sound đã xoá hoặc chưa có video nào dùng)* |
+
+**Đo trên 12 link thật, cùng một danh sách:**
+
+| | Lỗi |
+|---|---|
+| Trước khi sửa | **4/12** |
+| Có thử lại + phanh | **1/12** |
+| Thêm lượt quét lại | **0/12** |
+
+⚠ Một cái bẫy khi sửa: cờ `biChan` **phải để riêng cho từng link**. Ban đầu tôi đặt lên `opt` —
+mà `opt` dùng chung cả mẻ, nên một link bị chặn sẽ làm **mọi link sau** đều bị ghi nhầm là bị
+chặn. Nay dùng sổ ghi riêng (`ghi`) tạo mới trong `resolveToAudio`.
+
+⚠ Bẫy thứ hai: lượt quét lại gửi **lại dòng cũ** với đúng số thứ tự của nó, nên renderer phải
+**thay** chứ không **thêm** — không thì một sound hiện hai dòng (một dòng lỗi cũ, một dòng kết
+quả mới).
+
 ## 8. Còn thiếu / chưa chắc
 
 - **Chưa hiệu chỉnh trên dữ liệu thật của người dùng.** Ngưỡng hát mới chỉ chỉnh trên 2 bản hát

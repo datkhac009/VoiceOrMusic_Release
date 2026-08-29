@@ -12,6 +12,37 @@ bắt đầu và lúc xong.
 
 ---
 
+## 0.11.3 — 2026-08-29
+
+**Hết cảnh báo nhầm "sound đã xoá" khi TikTok chỉ đang chặn tạm**
+
+Quét một mẻ 51 link thì 20 link báo *"sound đã xoá, chưa có video nào dùng"* — mở trình duyệt ra
+thì sound vẫn còn nguyên, còn 5351 video. Đo lại thì TikTok trả **429/503** vì bị hỏi quá nhanh,
+mà tool chỉ thử **một lần rồi bỏ cuộc**:
+
+```
+sound 7318135118018349855: lần 1 → 429, lần 2 → 503, lần 3 → 503, lần 4 → 200 (7 video)
+```
+
+Nay:
+
+- **Thử lại có lùi dần** cho các mã tạm thời (429, 503, hết giờ…), nghe theo `Retry-After`.
+- **Phanh chung**: bị chặn thì tự hãm nhịp lại, hết chặn thì nới dần.
+- **Tự quét lại**: xong mẻ, những link hỏng *vì bị chặn* được chạy lại (2 lượt, nghỉ 8s rồi 16s).
+  Sound xoá thật thì không quét lại — thử nữa cũng thế thôi.
+- Thử tới **6 video** mỗi sound thay vì 3: đo được là trang sound ra 200 rồi mà từng video lẻ
+  vẫn có thể 503.
+- Câu báo lỗi **tách làm hai**, không còn nói "đã xoá" cho sound vẫn còn.
+
+Thêm một lỗi cùng họ: file nhạc tải về **thiếu** (đứt giữa chừng lúc bị chặn) vẫn được coi là
+xong, rồi ngã ở bước giải mã và báo *"giải mã lỗi"* — người dùng đọc tưởng máy hỏng. Nay đối
+chiếu `Content-Length`, thiếu byte thì tải lại, vẫn thiếu thì nói thẳng là tải thiếu.
+
+**Đo trên 12 link thật:** lỗi **4/12 → 1/12 → 0/12** (thử lại → thêm lượt quét lại).
+
+Cũng nới thời gian chờ bật tiếng trong panel từ ~11s lên ~31s: lúc TikTok chặn thì khung nhúng
+nạp lâu hơn hẳn, dòng đầu hay không kịp.
+
 ## 0.11.2 — 2026-08-29
 
 **Bấm một lần vào dòng là video chạy kèm tiếng — khỏi bấm thêm trong player**

@@ -174,10 +174,70 @@ function dauHieuPhim(html, laChuSound) {
  * bao "xong" (loi im lang, kieu nguy hiem nhat).
  * @returns {{playUrl:string, meta:object, via:string}|null}
  */
-async function resolveViaEmbed(p, opt) {
-  const get = (u) => httpGet(u, {
+// ── TIKTOK CHAN TAM: PHANH CHUNG + THU LAI ──────────────────────────────────────────
+//
+// Do that (2026-08-29) tren mot me 51 link cua nguoi dung: 20 link bao "sound da xoa" trong
+// khi mo trinh duyet thi sound VAN CON, con nguyen 5351 video. Do lai tung buoc thi ra:
+//   sound 7318135118018349855: lan 1 -> 429, lan 2 -> 503, lan 3 -> 503, lan 4 -> 200 (7 video)
+//   sound 7093628948978191110: lan 1 -> 503, lan 2 -> 503, lan 3 -> 200 (8 video)
+// Tuc la TikTok chan tam vi minh hoi qua nhanh, ma tool thi thu DUNG MOT LAN roi bo cuoc va
+// bao nham la "sound da xoa". Ngay ca khi trang sound ra 200, tung video le van co the 503.
+//
+// Nen: (1) thu lai co lui dan cho nhung ma TAM THOI, (2) khi da bi chan thi HAM CHUNG lai
+// mot nhip truoc moi request sau — hoi cham lai it con hon bi chan roi mat ca dong.
+const MA_TAM = new Set([0, 408, 425, 429, 500, 502, 503, 504]);
+const CHAN = {
+  toi: 0,        // moc thoi gian sam nhat duoc phep goi tiep
+  nhip: 0,       // do ham hien tai (ms) — tang khi bi chan, tu ha khi tro lai binh thuong
+  dinh: 0,       // dem so lan bi chan, chi de bao cho nguoi dung biet
+};
+const NGU = (ms) => new Promise(r => setTimeout(r, ms));
+
+/** Cho het phanh chung roi moi cho di tiep. */
+async function choPhanh() {
+  const con = CHAN.toi - Date.now();
+  if (con > 0) await NGU(con);
+}
+function ganhChan(res) {
+  CHAN.dinh++;
+  // Ham dan: 400ms -> 800 -> 1600 ... toi da 4s. Co Retry-After thi nghe theo may chu.
+  CHAN.nhip = Math.min(4000, CHAN.nhip ? CHAN.nhip * 2 : 400);
+  const ra = Number(res?.headers?.['retry-after']);
+  const cho = Number.isFinite(ra) && ra > 0 ? Math.min(15000, ra * 1000) : CHAN.nhip;
+  CHAN.toi = Date.now() + cho;
+  return cho;
+}
+function thongChan() {
+  // Tro lai binh thuong thi noi phanh tu tu, khong bo hep mot phat roi lai bi chan ngay.
+  CHAN.nhip = CHAN.nhip > 400 ? Math.floor(CHAN.nhip / 2) : 0;
+  if (CHAN.nhip) CHAN.toi = Date.now() + CHAN.nhip;
+}
+
+/**
+ * httpGet nhung BEN BI: gap ma tam thoi (429/503/...) thi cho roi thu lai.
+ * Tra ve ket qua cuoi cung, kem `.biChan` = true neu that bai vi bi chan (khong phai vi
+ * sound khong ton tai) — cho ben ngoai bao dung ban chat.
+ */
+async function httpGetBenBi(url, tuyChon = {}, lanToiDa = 4) {
+  let r = null;
+  for (let lan = 1; lan <= lanToiDa; lan++) {
+    await choPhanh();
+    r = await httpGet(url, tuyChon);
+    if (!MA_TAM.has(r.status)) { thongChan(); return r; }
+    const cho = ganhChan(r);
+    if (tuyChon.verbose) console.error(`   [chan] ${r.status} tai ${url.slice(-40)} — cho ${cho}ms roi thu lai (${lan}/${lanToiDa})`);
+    if (lan < lanToiDa) await NGU(cho);
+  }
+  return { ...r, biChan: true };
+}
+
+async function resolveViaEmbed(p, opt, ghi = {}) {
+  // BEN BI: TikTok hay tra 429/503 khi quet ca me — thu mot lan roi bo cuoc la bao nham
+  // "sound da xoa". Xem ghi chu o httpGetBenBi().
+  const get = (u) => httpGetBenBi(u, {
     maxBytes: 2 * 1024 * 1024,
     headers: { Accept: 'text/html,application/xhtml+xml', Referer: 'https://www.tiktok.com/' },
+    verbose: opt.verbose,
   });
 
   if (p.kind === 'video') {
@@ -201,14 +261,19 @@ async function resolveViaEmbed(p, opt) {
   // them request. Uu tien hon anh trong musicInfos vi cai do thuong la avatar.
   const anhKhung = extractAnhKhungHinh(htmlNhac);
   if (opt.verbose) console.error(`   [embed] music ${p.id} -> ${r.status}, thay ${vids.length} video`);
-  if (!vids.length) return null;
+  if (!vids.length) { if (r.biChan) ghi.biChan = true; return null; }
 
-  // Thu toi da 3 video: video dau co the da bi xoa/rieng tu, khong nen bo cuoc ngay.
-  for (const vid of vids.slice(0, 3)) {
+  // Thu toi da 6 video (truoc la 3). Do that: trang sound ra 200 roi ma tung video le VAN
+  // co the 503 — sound 7318135118018349855 phai den video thu BA moi lay duoc playUrl.
+  for (const vid of vids.slice(0, 6)) {
     const rv = await get(embedVideoUrl(vid));
     const htmlV = rv.body.toString('utf8');
     const mi = extractMusicInfos(htmlV);
-    if (!mi.playUrl) { if (opt.verbose) console.error(`   [embed] video ${vid}: khong co musicInfos`); continue; }
+    if (!mi.playUrl) {
+      if (rv.biChan) ghi.biChan = true;
+      if (opt.verbose) console.error(`   [embed] video ${vid}: khong co musicInfos${rv.biChan ? ' (bi chan)' : ''}`);
+      continue;
+    }
     if (mi.musicId && p.id && mi.musicId !== p.id) {
       if (opt.verbose) console.error(`   [embed] video ${vid} dung sound KHAC (${mi.musicId}) -> bo qua`);
       continue;
@@ -235,6 +300,9 @@ async function resolveViaEmbed(p, opt) {
  */
 async function resolveToAudio(rawInput, opt) {
   const p = parseInput(rawInput);
+  // ⚠ So ghi RIENG cho tung link. Khong duoc dat co len `opt` — `opt` dung chung ca me nen
+  // mot link bi chan se lam moi link sau do deu bi ghi nham la "bi chan".
+  const ghi = { biChan: false };
   const out = { input: rawInput, kind: p.kind, id: p.id || '', soundUrl: p.url || '', meta: {} };
 
   if (p.kind === 'invalid') return { ...out, ok: false, error: `khong doc duoc dau vao (${p.reason})` };
@@ -262,7 +330,7 @@ async function resolveToAudio(rawInput, opt) {
     // Ba lop, xep theo thu tu RE NHAT TRUOC. Lop sau chi chay khi lop truoc that bai, nen
     // duong binh thuong chi ton 2 request HTML nho.
     // Lop 1 — EMBED: khong can dang nhap, la duong DUY NHAT do duoc la chay on hom nay.
-    const emb = await resolveViaEmbed(p, opt);
+    const emb = await resolveViaEmbed(p, opt, ghi);
     if (emb) { playUrl = emb.playUrl; meta = emb.meta; out.via = emb.via; }
 
     // Lop 2 — trang /music/ truc tiep. Hom nay trang nay khong con nhung du lieu sound,
@@ -285,8 +353,12 @@ async function resolveToAudio(rawInput, opt) {
     }
 
     if (!playUrl) {
-      return { ...out, ok: false, meta,
-        error: 'khong lay duoc link file nhac (sound da xoa, chua co video nao dung, hoac TikTok dang chan)' };
+      // ⚠ PHAI phan biet hai chuyen khac han nhau. Truoc day gop lam mot cau nen nguoi dung
+      // doc thay "sound da xoa" trong khi sound van con nguyen — do la bao SAI SU THAT.
+      return { ...out, ok: false, meta, biChan: !!ghi.biChan,
+        error: ghi.biChan
+          ? 'TikTok dang chan tam (429/503) — sound van con, bam Kiem tra lai sau it phut'
+          : 'khong lay duoc link file nhac (sound da xoa hoac chua co video nao dung)' };
     }
   }
   out.meta = meta;
@@ -295,14 +367,35 @@ async function resolveToAudio(rawInput, opt) {
   // Do that (2026-08-13): CDN nhac cua TikTok thi thoang cham qua 25 giay — mot lan cham la
   // ca sound do bao loi, trong khi thu lai thi duoc ngay. File chi ~1MB nen thu lai re.
   // Chi thu THEM MOT lan: hong hai lan lien thi nhieu kha nang la hong that, khong phai cham.
+  //
+  // ⚠ THEM (2026-08-29): phai kiem file co TAI DU khong, khong chi xem co byte nao khong.
+  // Do that: tai ve duoc 200 kem mot phan file (dut giua chung luc TikTok dang chan) ->
+  // decodeAudioData nem "Unable to decode audio data", nguoi dung doc thay "giai ma loi"
+  // tuong may hong, thuc ra chi la tai thieu. Co Content-Length thi doi chieu la biet ngay.
+  const duFile = (r) => {
+    if (!r || r.status < 200 || r.status >= 300 || !r.body.length) return false;
+    const cl = Number(r.headers?.['content-length']);
+    if (!Number.isFinite(cl) || cl <= 0) return true;              // may chu khong noi -> tin
+    if (r.body.length >= MAX_AUDIO_BYTES) return true;             // minh CO Y cat o tran
+    return r.body.length >= cl;
+  };
   let a = null;
-  for (let lan = 1; lan <= 2; lan++) {
-    a = await httpGet(playUrl, {
+  for (let lan = 1; lan <= 3; lan++) {
+    a = await httpGetBenBi(playUrl, {
       headers: { Referer: 'https://www.tiktok.com/', Accept: '*/*' },
       timeoutMs: 60000,
-    });
-    if (a.status >= 200 && a.status < 300 && a.body.length) break;
-    if (lan === 1 && opt.verbose) console.error(`   [audio] lan 1 hong (HTTP ${a.status}${a.error ? ' — ' + a.error : ''}) -> thu lai`);
+      verbose: opt.verbose,
+    }, 2);
+    if (duFile(a)) break;
+    if (opt.verbose) {
+      const cl = a.headers?.['content-length'];
+      console.error(`   [audio] lan ${lan} hong (HTTP ${a.status}${a.error ? ' — ' + a.error : ''}`
+        + `${cl ? `, tai ${a.body.length}/${cl} byte` : ''}) -> thu lai`);
+    }
+  }
+  if (!duFile(a) && a.status >= 200 && a.status < 300 && a.body.length) {
+    return { ...out, ok: false,
+      error: `tai file nhac thieu (${a.body.length}/${a.headers?.['content-length']} byte) — TikTok cat giua chung, thu lai sau` };
   }
   if (a.status < 200 || a.status >= 300 || !a.body.length) {
     return { ...out, ok: false, error: `tai file nhac loi: HTTP ${a.status}${a.error ? ' — ' + a.error : ''}` };
@@ -427,10 +520,9 @@ async function runBatch(links, opt, hooks = {}) {
   try {
     await sanSang;   // cho renderer nap xong model roi moi day viec dau tien
 
-    for (let i = 0; i < links.length; i++) {
-      if (hooks.shouldStop && hooks.shouldStop()) { dbg('nguoi dung bam Dung'); break; }
-      const link = links[i];
-
+    // Chay MOT link -> tra ve dong ket qua. Tach ra thanh ham de luot QUET LAI ben duoi
+    // dung lai duoc y het, khong phai chep doi.
+    const chayMot = async (link, i) => {
       hooks.onProgress?.({ i, total: links.length, phase: 'fetch', link });
       dbg(`resolve BAT DAU ${i + 1}/${links.length}: ${link.slice(0, 70)}`);
       const r = await resolveToAudio(link, opt);
@@ -472,8 +564,38 @@ async function runBatch(links, opt, hooks = {}) {
                                    { ...opt, nguoiDung: tay && tay.tinhTrang }) };
         }
       }
+      return row;
+    };
+
+    for (let i = 0; i < links.length; i++) {
+      if (hooks.shouldStop && hooks.shouldStop()) { dbg('nguoi dung bam Dung'); break; }
+      const row = await chayMot(links[i], i);
       rows.push(row);
       hooks.onRow?.(row, i);
+    }
+
+    // ── QUET LAI NHUNG LINK BI TIKTOK CHAN ──────────────────────────────────────────
+    // Nguoi dung noi dung y: "neu video loi thi reload lai den bao gio hien ra video thi
+    // thoi". Nhung link that bai vi BI CHAN thi sound van con — chi la luc do hoi don qua.
+    // Quet xong ca me la da nghi duoc mot lat, thu lai luc nay ti le duoc cao.
+    //
+    // ⚠ CHI quet lai loai `biChan`. Sound xoa that thi thu bao nhieu lan cung the, quet lai
+    // chi ton thoi gian cua nguoi dung.
+    for (let luot = 1; luot <= 2; luot++) {
+      if (hooks.shouldStop && hooks.shouldStop()) break;
+      const canThu = rows.map((r, i) => ({ r, i })).filter(x => x.r && !x.r.ok && x.r.biChan);
+      if (!canThu.length) break;
+      const cho = 8000 * luot;      // nghi cho TikTok ha phanh roi hay hoi lai
+      dbg(`quet lai luot ${luot}: ${canThu.length} link bi chan, nghi ${cho}ms truoc`);
+      hooks.onProgress?.({ i: links.length, total: links.length, phase: 'cho-quet-lai',
+                           link: `${canThu.length} link bi TikTok chan — nghi ${Math.round(cho / 1000)}s roi thu lai` });
+      await NGU(cho);
+      CHAN.nhip = 0; CHAN.toi = 0;   // ha phanh, cho luot moi mot co hoi sach
+      for (const { r: cu, i } of canThu) {
+        if (hooks.shouldStop && hooks.shouldStop()) break;
+        const moi = await chayMot(cu.input, i);
+        if (moi.ok || !moi.biChan) { rows[i] = moi; hooks.onRow?.(moi, i); }
+      }
     }
   } finally {
     try { win.destroy(); } catch (_) {}
@@ -928,7 +1050,10 @@ function moGiaoDien(opt) {
     const phien = ++phienTieng;
     if (dung) return false;
     // Player nap xong luc nao khong biet truoc nen phai cho — nhung cho co han.
-    for (let i = 0; i < 16; i++) {
+    // ⚠ Tran nay tung la 16 nhip (~11s) va DO THAY la thieu: luc TikTok chan tam thi khung
+    // nhung nap lau hon han, dong dau thuong khong kip -> bam vao ma khong co tieng. Nay 45
+    // nhip (~31s). Cho lau khong ton gi: hem chay duoc la thoat ngay, dong panel cung thoat.
+    for (let i = 0; i < 45; i++) {
       if (win.isDestroyed() || phien !== phienTieng) return false;
       const f = win.webContents.mainFrame?.framesInSubtree
         ?.find(x => /tiktok\.com\/embed/.test(x.url || ''));
