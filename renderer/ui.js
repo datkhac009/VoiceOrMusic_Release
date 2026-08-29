@@ -432,11 +432,13 @@ function moPanel(i) {
          allow="autoplay; encrypted-media; fullscreen" referrerpolicy="strict-origin"></iframe>`
     : `<div class="trong">Không có video nào dùng sound này để xem.<br>
         <span class="lnk">${esc(r.soundUrl || r.input)}</span></div>`;
+  if (vid) window.vom.batTieng();     // bam mot lan la nghe duoc luon — xem ghi chu ben main.js
 }
 
 function dongPanel() {
   $('panel').classList.remove('mo');
   $('manDem').classList.remove('mo');
+  window.vom.batTieng({ dung: true });  // tat vong cho bat tieng dang chay do
   $('pKhung').innerHTML = '';        // go iframe de video khong chay ngam
   dangXem = -1;
   veBang();

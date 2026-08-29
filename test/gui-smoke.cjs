@@ -260,6 +260,13 @@ async function noiTrang(re) {
         const the = String(await c2.js(`document.getElementById('pThe').textContent`));
         check('panel hien @tai khoan', /@/.test(the), the.slice(0, 80));
 
+        // BAM MOT LAN LA NGHE DUOC LUON — kiem THAT chu khong kiem hinh thuc: batTieng()
+        // chi tra true khi trong iframe co the <video> dang CHAY va KHONG tat tieng. Main
+        // doc duoc dieu do vi no voi vao frame con qua framesInSubtree (renderer thi khong,
+        // iframe khac nguon). Xem ghi chu day du ben main.js, cho 'ui:bat-tieng'.
+        check('video trong panel chay kem TIENG chi voi mot cu bam',
+          await c2.js(`window.vom.batTieng()`) === true);
+
         // Nut tra cuu nen tang khac: chi MO TRINH DUYET NGOAI (Google/YouTube chan nhung
         // iframe), nguoi dung tu nhin roi quyet dinh. Kiem truy van dung duoc dung chua.
         check('co nut tim YouTube', await c2.js(`!!document.getElementById('nutYT')`) === true);

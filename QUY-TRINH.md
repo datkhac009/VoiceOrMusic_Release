@@ -369,6 +369,36 @@ chưa kể STFT/iSTFT 6144 điểm phải tự viết (không phải luỹ thừ
 Nếu làm thì **chỉ chạy cho dòng nhãn "Giọng nói + nhạc nền"** (~7% số dòng trong bộ 46 mẫu) —
 đúng chỗ nó trả lời được câu hỏi "nhạc nền có lời hay không lời", thay vì bật cho mọi link.
 
+## 7h. Bấm một lần vào dòng là video chạy **kèm tiếng** — đo, và ba đường đã thử
+
+Trước đây bấm vào dòng chỉ ra khung đen của TikTok, phải bấm thêm trong player mới xem/nghe
+được. Đo trên trang `/embed/v2/` (3 sound, 2026-08-24):
+
+| Đường | Kết quả đo | Kết luận |
+|---|---|---|
+| Bật cờ `--autoplay-policy=no-user-gesture-required` | bật hay tắt cờ đều **y hệt**: `dai:0, rong:0`, player không nạp gì | **không dùng** |
+| Bắn sự kiện chuột thật vào toạ độ khung (`sendInputEvent`) | chạy **2/3 dòng** | **không dùng** — bấm mù |
+| Với vào frame con từ main rồi bỏ `muted` + `play()` | **3/3 dòng** chạy có tiếng | **đang dùng** |
+
+Hai điều đo được, quan trọng hơn cả cách làm:
+
+1. **Nhúng trong iframe khác hẳn mở thẳng.** Nhúng thì player **tự chạy sẵn**, chỉ là đang tắt
+   tiếng (đo được: `giay 1.9`, `readyState 4`, `muted true` — chưa hề bấm gì). Mở thẳng trang
+   đó ở cửa sổ gốc thì nó không nạp gì cả. Đừng lấy kết quả đo ở cửa sổ gốc suy ra cho iframe.
+2. **Trang có BA thẻ `<video>`.** Thẻ nguồn `v16-webapp-prime` hỏng (`error 4`), hai thẻ nguồn
+   `v45.tiktokcdn` mới là thẻ thật (576×1024). `document.querySelector('video')` trúng thẳng
+   thẻ hỏng → `play()` báo *"no supported sources"*. Phải **lọc** `!v.error && readyState >= 2
+   && videoWidth > 0`.
+
+Vì sao làm ở main chứ không ở renderer: iframe **khác nguồn** nên renderer không với vào trong
+được, còn main thì với được qua `webContents.mainFrame.framesInSubtree`. Vòng chờ có hạn (16
+nhịp × 700ms) và có **số phiên** — mở dòng khác thì vòng của dòng cũ tự tắt, khỏi bật tiếng
+nhầm cho video của dòng mới. Xem `main.js`, chỗ `ipcMain.handle('ui:bat-tieng')`.
+
+Vì sao bỏ đường bắn chuột: nó bấm mù, không biết player nạp xong chưa, mà **cú bấm thứ hai lúc
+video đang chạy lại hoá thành tạm dừng**. Test giao diện có mục kiểm cái này (`batTieng()` chỉ
+trả `true` khi thật sự có thẻ đang chạy và không tắt tiếng).
+
 ## 8. Còn thiếu / chưa chắc
 
 - **Chưa hiệu chỉnh trên dữ liệu thật của người dùng.** Ngưỡng hát mới chỉ chỉnh trên 2 bản hát

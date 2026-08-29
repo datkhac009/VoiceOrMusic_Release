@@ -893,6 +893,54 @@ function moGiaoDien(opt) {
     }
   });
 
+  // ── BAT TIENG CHO VIDEO TRONG PANEL ─────────────────────────────────────────────
+  // Nguoi dung chi muon bam MOT lan vao dong la video chay kem tieng, khong phai bam them
+  // trong player.
+  //
+  // Do duoc (2026-08-24) tren /embed/v2/ khi NHUNG trong trang — khac han khi mo thang:
+  //   • Nhung trong iframe thi player TU CHAY SAN, chi la TAT TIENG (do duoc: giay 1.9,
+  //     readyState 4, muted true — chua he bam gi).
+  //   • Mo THANG trang do o cua so goc thi no khong nap gi ca (dai=0, rong=0), bam hay bat
+  //     --autoplay-policy cung khong an thua. Nen dung lay ket qua do suy ra cho iframe.
+  //   • Trang co BA the <video>: mot cai nguon v16-webapp-prime bi error 4 (hong, bo qua),
+  //     hai cai con lai nguon v45.tiktokcdn deu that (576x1024).
+  // => Chi can bo `muted` roi goi play() la co tieng. Do 3/3 sound deu duoc.
+  //
+  // Vi sao khong lam trong renderer: iframe KHAC NGUON, renderer khong voi vao trong duoc.
+  // Nhung main thi voi duoc qua webContents.mainFrame.framesInSubtree — day la duong sach.
+  // (Duong cu la ban su kien chuot that vao toa do cua khung. Bo roi: no bam mu, khong biet
+  //  player da nap chua, va cu bam thu hai luc video DANG CHAY lai hoa thanh tam dung. Do
+  //  thuc te chi duoc 2/3 dong.)
+  //
+  // Da do: KHONG can co --autoplay-policy — tat co di van bat tieng duoc.
+  const JS_BAT_TIENG = `(async () => {
+    const ds = [...document.querySelectorAll('video')]
+      .filter(v => !v.error && v.readyState >= 2 && v.videoWidth > 0);
+    if (!ds.length) return false;
+    for (const v of ds) { v.muted = false; v.volume = 1; try { await v.play(); } catch (_) {} }
+    return ds.some(v => !v.paused && !v.muted);
+  })()`;
+
+  // Moi lan mo dong khac lai tang so phien -> vong doi cua dong cu tu tat, khong bat tieng
+  // nham cho video cua dong moi.
+  let phienTieng = 0;
+  ipcMain.handle('ui:bat-tieng', async (_e, { dung = false } = {}) => {
+    const phien = ++phienTieng;
+    if (dung) return false;
+    // Player nap xong luc nao khong biet truoc nen phai cho — nhung cho co han.
+    for (let i = 0; i < 16; i++) {
+      if (win.isDestroyed() || phien !== phienTieng) return false;
+      const f = win.webContents.mainFrame?.framesInSubtree
+        ?.find(x => /tiktok\.com\/embed/.test(x.url || ''));
+      if (f) {
+        // frame co the bi go giua chung (nguoi dung dong panel) -> executeJavaScript nem.
+        try { if (await f.executeJavaScript(JS_BAT_TIENG)) return true; } catch (_) {}
+      }
+      await new Promise(r => setTimeout(r, 700));
+    }
+    return false;
+  });
+
   ipcMain.handle('ui:mo-ngoai', (_e, url) => {
     const u = String(url || '');
     if (!/^https?:\/\//i.test(u)) { dbg(`tu choi mo link la: ${u.slice(0, 80)}`); return false; }

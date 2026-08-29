@@ -26,6 +26,10 @@ contextBridge.exposeInMainWorld('vom', {
   moNgoai: (url) => ipcRenderer.invoke('ui:mo-ngoai', url),
   chupKhung: (vung) => ipcRenderer.invoke('ui:chup-khung', vung),
 
+  // Bat tieng cho video trong panel — bam mot lan vao dong la nghe duoc luon.
+  // Goi { dung: true } de tat vong doi khi dong panel. Xem ghi chu ben main.js.
+  batTieng: (tuyChon) => ipcRenderer.invoke('ui:bat-tieng', tuyChon),
+
   // Tinh lai "lay hay loai" cho CA DANH SACH khi nguoi dung bat/tat luat ban quyen — khong
   // phai chay lai model. Nho main tinh (main goi classify.cjs) de luat chi co MOT ban: chep
   // cong thuc sang ui.js thi hai ban som muon se lech nhau.

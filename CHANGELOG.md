@@ -12,6 +12,31 @@ bắt đầu và lúc xong.
 
 ---
 
+## 0.11.2 — 2026-08-29
+
+**Bấm một lần vào dòng là video chạy kèm tiếng — khỏi bấm thêm trong player**
+
+Trước đây bấm vào dòng chỉ ra khung đen của TikTok, phải bấm thêm một lần nữa trong player mới
+xem và nghe được, mỗi link mất thêm mấy giây.
+
+Điều đo được: khi **nhúng trong iframe**, player của TikTok **tự chạy sẵn** — chỉ là đang tắt
+tiếng (`giay 1.9`, `readyState 4`, `muted true`, chưa hề bấm gì). Nên không phải "bật chạy" mà
+chỉ cần **bỏ tắt tiếng**. App nay tự làm việc đó ngay khi panel mở.
+
+Vài chỗ đã thử rồi bỏ, ghi lại để khỏi thử lại:
+
+- Cờ `--autoplay-policy=no-user-gesture-required` — bật hay tắt **đo ra y hệt nhau**, bỏ.
+- Bắn sự kiện chuột thật vào toạ độ khung — chỉ được **2/3** dòng, mà cú bấm thứ hai lúc video
+  đang chạy lại hoá thành *tạm dừng*.
+- Đường đang dùng: main với vào frame con qua `framesInSubtree` rồi bỏ `muted` + `play()` —
+  **3/3** dòng chạy có tiếng.
+
+Một cái bẫy: trang có **ba** thẻ `<video>`, thẻ đầu (`v16-webapp-prime`) hỏng sẵn `error 4`, nên
+`querySelector('video')` trúng ngay thẻ hỏng và `play()` báo *"no supported sources"*. Phải lọc
+theo `readyState` và `videoWidth`. Chi tiết đo ở `QUY-TRINH.md` mục **7h**.
+
+Đóng panel thì vòng chờ tự tắt và iframe bị gỡ như cũ, video không chạy ngầm.
+
 ## 0.11.1 — 2026-08-19
 
 **Bỏ làm mờ nền khi mở panel — bảng phía sau sáng và đọc được**
