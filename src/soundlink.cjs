@@ -445,6 +445,19 @@ const TU_PHIM = [
   // Nen day chi vot them duoc phan nao; ca kho van phai xem bang mini browser + Google Lens.
   'interview', 'interviews', 'phongvan', 'phỏng vấn', 'entrevista', 'wawancara',
   'podcast', 'podcasts', 'talkshow', 'talkshows',
+  // ⚠ CHU KHONG PHAI LATIN — do that (2026-08-29): sound triích phim hoạt hình Toy Story 5
+  // gan hashtag #電影玩具總動員5 (電影 = phim). Danh sach cu chi co chu Latin nen TRUOT
+  // hoan toan. Nguoi dung quet sound nhieu nuoc nen phai co ca cac he chu nay.
+  // Tieng Trung (gian the + phon the):
+  '电影', '電影', '动漫', '動漫', '番剧', '电视剧', '電視劇', '剧情', '劇情', '预告片', '預告片',
+  // Tieng Nhat:
+  '映画', 'アニメ', 'ドラマ',   // KHONG lay '作品' (tac pham) — nghia qua rong, de bat nham
+  // Tieng Han:
+  '영화', '드라마', '애니메이션',
+  // Tieng A Rap:
+  'فيلم', 'مسلسل', 'انمي', 'مقطع',
+  // Tieng Nga / Hindi / Thai:
+  'фильм', 'мультфильм', 'सिनेमा', 'फिल्म', 'หนัง', 'การ์ตูน',
 ];
 
 // ── TAI KHOAN DONG VAI NHAN VAT ─────────────────────────────────────────────────────
@@ -533,10 +546,35 @@ function nhanDangPhim(dauHieu = {}) {
   return { nghiPhim: khop.size > 0, tuKhop: [...khop], nguon };
 }
 
+/**
+ * Rut DIA CHI FILE VIDEO tu trang /embed/v2/<videoId>.
+ *
+ * ⚠ Trang nay KHONG co khoa "playAddr" nhu trang web thuong — no de THANG dia chi trong the:
+ *     <video data-testid="play-video-blur" src="https://v58.tiktokcdn.com/video/tos/...">
+ * Da do that (2026-08-29): mot trang co 4 the nhu vay, khong he co chu "playAddr" nao.
+ * Van giu them nhanh doc "playAddr" phong khi TikTok doi lai cach dung.
+ *
+ * @param {string} html
+ * @returns {string[]} danh sach dia chi, da bo trung
+ */
+function extractVideoSrcs(html) {
+  if (!html || typeof html !== 'string') return [];
+  const ra = [];
+  const them = (u) => {
+    // Dung lai unescapeJsonish() da co san: dia chi trong trang bi thoat kieu JSON
+    // (/ cho dau gach cheo, & cho dau va) lan kieu thuc the HTML (&amp;).
+    const s = unescapeJsonish(String(u)).replace(/&amp;/g, '&');
+    if (/^https:\/\//.test(s) && !ra.includes(s)) ra.push(s);
+  };
+  for (const m of html.matchAll(/src="(https:\/\/[^"]*\/video\/tos\/[^"]+)"/g)) them(m[1]);
+  for (const m of html.matchAll(/"playAddr"\s*:\s*"([^"]{20,})"/g)) them(m[1]);
+  return ra;
+}
+
 module.exports = {
   parseInput, canonicalMusicUrl, extractSoundMeta, extractAuthorInfos,
   extractHashtags, extractBio, extractCaption, nhanDangPhim, extractAnhKhungHinh, TU_PHIM,
   truyVanTimKiem, urlTimYouTube, urlTimGoogle, urlLens, TEN_CHUNG,
-  embedMusicUrl, embedVideoUrl, extractVideoIds, extractMusicInfos,
+  embedMusicUrl, embedVideoUrl, extractVideoIds, extractMusicInfos, extractVideoSrcs,
   isDirectAudio, isLocalPath, unescapeJsonish, deepCollect, sliceBalanced,
 };

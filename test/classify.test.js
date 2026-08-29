@@ -584,6 +584,23 @@ function rep(n, w) { return Array.from({ length: n }, () => w); }
     check('reason doc duoc bang tieng Viet', /noi .* hat .* nhac/.test(r.reason), r.reason);
   }
 
+  // ── Ghi chú GIỮC NỐT: co the la HAT ma model khong nghe ra ─────────────────
+  // ⚠ CHI la ghi chu, KHONG duoc bien thanh luat loai: kiem chia doi cho loi rong +3 va
+  // -1 (khong tong quat duoc). Xem ghi chu day du trong classify.cjs.
+  {
+    const mk = (gn, nhan) => ({ label: nhan || 'voice', labelVi: 'x', accept: true, stats: {
+      speechFrac: 0.8, singFrac: 0, musicFrac: 0, usableWindows: 20, singWindows: 0, singMax: 0.01,
+      caoDo: { tiLeGiuNot: gn, soNot: 6, notDaiNhatMs: 420, tiLeCoCaoDo: 0.8 } } });
+    const { ghiChuKhongChac } = C;
+    const co = (o) => o.ghiChu.some(x => /giữ nốt/.test(x));
+    check('giu not cao + nhan giong noi -> CO nhac nghe lai', co(ghiChuKhongChac(mk(0.22), {}, {})));
+    check('giu not thap -> KHONG nhac (khoi lam phien)', !co(ghiChuKhongChac(mk(0.05), {}, {})));
+    check('nhan Nhac thi khong nhac chuyen hat', !co(ghiChuKhongChac(mk(0.4, 'music'), {}, {})));
+    check('thieu so cao do -> khong nem, khong ghi chu', (() => {
+      const k = mk(0.3); delete k.stats.caoDo; return !co(ghiChuKhongChac(k, {}, {}));
+    })());
+  }
+
   console.log('\n' + '='.repeat(60));
   console.log(`KET QUA: ${pass} pass, ${fail} fail`);
   process.exit(fail > 0 ? 1 : 0);

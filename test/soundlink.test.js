@@ -398,6 +398,27 @@ function check(label, cond, extra = '') {
       S.urlLens('https://a/b?c=1&d=2').includes('%26'), S.urlLens('https://a/b?c=1&d=2'));
   }
 
+  // ── extractVideoSrcs: dia chi FILE VIDEO trong trang nhung ─────────────────
+  // ⚠ Trang /embed/v2/ KHONG co khoa "playAddr" — no de thang dia chi trong <video src="...">.
+  // Da do that (2026-08-29): mot trang co 4 the nhu vay, khong mot chu "playAddr" nao.
+  {
+    const hai = '<video data-testid="play-video-blur" src="https://v58.tiktokcdn.com/video/tos/us/x/?a=1&amp;bt=9"></video>'
+              + '<video src="https://v58.tiktokcdn.com/video/tos/us/x/?a=1&amp;bt=9"></video>';
+    check('extractVideoSrcs doc duoc <video src> va BO TRUNG', S.extractVideoSrcs(hai).length === 1);
+    check('extractVideoSrcs giai ma &amp; thanh &',
+      S.extractVideoSrcs(hai)[0].includes('&bt=9') && !S.extractVideoSrcs(hai)[0].includes('&amp;'));
+    check('extractVideoSrcs dau vao rong -> mang rong',
+      S.extractVideoSrcs('').length === 0 && S.extractVideoSrcs(null).length === 0
+      && S.extractVideoSrcs(undefined).length === 0);
+    check('extractVideoSrcs BO qua link khong phai video',
+      S.extractVideoSrcs('<img src="https://a.com/x.jpg"><script src="https://a.com/y.js">').length === 0);
+    check('extractVideoSrcs van doc duoc playAddr thoat kieu JSON',
+      S.extractVideoSrcs('"playAddr":"https:' + '\u002F\u002F' + 'v16.tiktokcdn.com'
+        + '\u002Fvideo\u002Ftos\u002Fabc"')[0] === 'https://v16.tiktokcdn.com/video/tos/abc');
+    check('extractVideoSrcs chi nhan https, bo http thuong',
+      S.extractVideoSrcs('<video src="http://v58.tiktokcdn.com/video/tos/us/x">').length === 0);
+  }
+
   console.log('\n' + '='.repeat(60));
   console.log(`KET QUA: ${pass} pass, ${fail} fail`);
   process.exit(fail > 0 ? 1 : 0);

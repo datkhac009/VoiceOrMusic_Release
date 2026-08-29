@@ -8,6 +8,7 @@
 const { ipcRenderer } = require('electron');
 const { pathToFileURL } = require('url');
 const { reduceWindow } = require('../src/classify.cjs');
+const { docGiuNot } = require('../src/caodo.cjs');
 const { AudioClassifier, FilesetResolver } = require('@mediapipe/tasks-audio');
 
 const SAMPLE_RATE = 16000;   // YAMNet chi nhan 16 kHz mono — khong phai lua chon, la yeu cau
@@ -101,8 +102,16 @@ async function main() {
         // reduceWindow den tu chinh module classify.cjs ma main dung, nen luat gop la MOT.
         windows.push(reduceWindow(cats));
       }
+      // CAO DO: do rieng, KHONG qua model. Dung de tach HAT khoi NOI — YAMNet do that la
+      // khong nghe ra (cham 'Speech' 0,63-0,95 tren chinh nhung sound nguoi dung bao la hat).
+      // Xem ghi chu day du o src/caodo.cjs.
+      const tCaoDo = performance.now();
+      const caoDo = docGiuNot(pcm, SAMPLE_RATE);
+      log(`${job.key}: cao do — giu not ${(caoDo.tiLeGiuNot * 100).toFixed(0)}%, `
+        + `${caoDo.soNot} not, dai nhat ${caoDo.notDaiNhatMs}ms (${Math.round(performance.now() - tCaoDo)}ms)`);
+
       log(`${job.key}: ${windows.length} cua so / ${durationSec.toFixed(1)}s trong ${Math.round(performance.now() - t0)}ms`);
-      await ipcRenderer.invoke('job-done', { key: job.key, windows, labels, nhanDo, durationSec, fullDurationSec });
+      await ipcRenderer.invoke('job-done', { key: job.key, windows, labels, nhanDo, caoDo, durationSec, fullDurationSec });
     } catch (e) {
       await ipcRenderer.invoke('job-done', { key: job.key, error: String(e && e.message || e), windows: [] });
     }

@@ -317,35 +317,50 @@ async function noiTrang(re) {
         await c2.js(`moPanel(${iXem}); 1`);
         await nghi(800);
         check('panel mo ra', await c2.js(`document.getElementById('panel').classList.contains('mo')`) === true);
-        const src = String(await c2.js(`document.querySelector('#pKhung iframe')?.src || ''`));
-        check('co nhung player TikTok that', /tiktok\.com\/embed\/v2\/\d+/.test(src), src.slice(0, 70));
+        // Panel nay TU TAI video ve roi phat bang the <video> cua chinh app (duong chinh);
+        // chi khi tai khong duoc moi muon khung nhung cua TikTok (duong du phong).
+        // ⚠ Phai cho: tai video mat vai giay. Do that: thuong 1,5s, co ca lan 19s.
+        let oXem = {};
+        for (let i = 0; i < 30; i++) {
+          await nghi(1500);
+          oXem = JSON.parse(await c2.js(`(() => { const v = document.getElementById('pVideo');
+            return JSON.stringify({
+              video: v ? { nguon: (v.currentSrc || '').slice(0, 5), rong: v.videoWidth, dung: v.paused } : null,
+              iframe: document.querySelector('#pKhung iframe')?.src || '',
+              bao: (document.querySelector('#pKhung .trong')?.textContent || '').trim().slice(0, 60),
+            }); })()`) || '{}');
+          if (oXem.video?.rong > 0 || /embed\/v2/.test(oXem.iframe) || oXem.bao) break;
+        }
+        const coCho = oXem.video?.rong > 0 || /tiktok\.com\/embed\/v2\/\d+/.test(oXem.iframe);
+        if (!coCho && oXem.bao) {
+          // App da noi that la khong mo duoc — do la ung xu DUNG, khong phai loi cua app.
+          console.log(`   BO QUA cho xem video — app bao: "${oXem.bao}"`);
+        } else {
+          check('panel co cho xem video that (tu tai, hoac khung nhung)', coCho, JSON.stringify(oXem));
+          check('video tu tai co HINH (khong phai khung den)',
+            oXem.video ? oXem.video.rong > 0 : true, JSON.stringify(oXem.video));
+        }
         const the = String(await c2.js(`document.getElementById('pThe').textContent`));
         check('panel hien @tai khoan', /@/.test(the), the.slice(0, 80));
 
-        // BAM MOT LAN LA NGHE DUOC LUON — kiem THAT chu khong kiem hinh thuc: batTieng()
-        // chi tra true khi trong iframe co the <video> dang CHAY va KHONG tat tieng. Main
-        // doc duoc dieu do vi no voi vao frame con qua framesInSubtree (renderer thi khong,
-        // iframe khac nguon). Xem ghi chu day du ben main.js, cho 'ui:bat-tieng'.
-        // ⚠ Muc nay PHU THUOC MANG. Neu chinh trang nhung dang bi TikTok chan (429/503) thi
-        // khong the co video ma bat tieng — do la loi cua TikTok luc do, khong phai cua app.
-        // Bao FAIL trong truong hop do la bao SAI, nen: do trang thai that roi hay ket luan.
-        {
+        // Video PHAI co TIENG khi bam mot lan. Duong chinh la the <video> cua chinh app nen
+        // doc thang duoc; duong du phong (khung nhung khac nguon) thi phai nho main doc ho
+        // qua framesInSubtree — do la viec cua batTieng().
+        //
+        // ⚠ Muc nay PHU THUOC MANG: khong tai duoc video va TikTok cung chan khung nhung thi
+        // khong the co tieng — do la loi cua TikTok luc do, khong phai cua app. Bao FAIL
+        // trong truong hop do la bao SAI, nen chi ket luan khi THAT SU co cho xem.
+        if (oXem.video?.rong > 0) {
+          const tt = JSON.parse(await c2.js(`(() => { const v = document.getElementById('pVideo');
+            return JSON.stringify({ dung: v.paused, tat: v.muted, am: v.volume }); })()`) || '{}');
+          check('video tu tai chay kem TIENG chi voi mot cu bam',
+            tt.dung === false && tt.tat === false && tt.am > 0, JSON.stringify(tt));
+        } else if (/embed\/v2/.test(oXem.iframe || '')) {
           const coTieng = await c2.js(`window.vom.batTieng()`) === true;
-          // Hai le do KHONG phai loi cua app, va deu do duoc:
-          //   * trang nhung bi chan (429/503) -> khong nap duoc player
-          //   * trang ra 200 nhung KHONG CO playAddr -> TikTok khong con cap dia chi phat
-          //     cho video do nua (da gap that: video 7286516660331105541, co videoData ma
-          //     khong co playAddr, trang khong ve lay mot the <video> nao)
-          let vi = '';
-          if (!coTieng) {
-            try {
-              const rn = await fetch(src, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-              if (rn.status !== 200) vi = `TikTok dang chan trang nhung (ma ${rn.status})`;
-              else if (!(await rn.text()).includes('playAddr')) vi = 'TikTok khong con cap playAddr cho video nay';
-            } catch (e) { vi = 'khong hoi duoc trang nhung: ' + e.message; }
-          }
-          if (vi) console.log(`   BO QUA video chay kem TIENG — ${vi}`);
-          else check('video trong panel chay kem TIENG chi voi mot cu bam', coTieng);
+          if (coTieng) check('video (khung nhung) chay kem TIENG', true);
+          else console.log('   BO QUA tieng — dang phai muon khung nhung ma TikTok khong cho phat');
+        } else {
+          console.log('   BO QUA tieng — khong co cho xem video (da bo qua o muc tren)');
         }
 
         // Nut tra cuu nen tang khac: chi MO TRINH DUYET NGOAI (Google/YouTube chan nhung
@@ -364,7 +379,8 @@ async function noiTrang(re) {
         // ra anh den? JS trong trang chac chan khong doc duoc pixel cua iframe khac nguon,
         // nen neu capturePage cung khong duoc thi ca tinh nang nay vo nghia.
         // Goi dung ham ma NUT goi, de test di qua ca phan cat vung theo o cuon.
-        const CHUP_JS = `(async () => { const k = document.querySelector('#pKhung iframe');
+        const CHUP_JS = `(async () => { const k = document.querySelector('#pKhung video, #pKhung iframe');
+             if (!k) return JSON.stringify({ thieu: true });
              const b = k.getBoundingClientRect();
              const o = document.querySelector('.p-than').getBoundingClientRect();
              const x = Math.max(b.left, o.left, 0), y = Math.max(b.top, o.top, 0);

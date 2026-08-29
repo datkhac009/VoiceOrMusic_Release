@@ -12,6 +12,55 @@ bắt đầu và lúc xong.
 
 ---
 
+## 0.11.5 — 2026-08-29
+
+**Đo mức đúng/sai thật, và thêm ghi chú "có thể đang hát"**
+
+Đo máy với **147 quyết định tay** đã lưu sẵn trong app (139 sound tính được): **đúng 78%** — sai
+30 ca, trong đó **23 là nhận quá tay**.
+
+Đo tiếp trên chính những ca đó thì rõ vì sao không vặn ngưỡng được: YAMNet chấm `Speech` 0,63–0,95
+còn điểm hát cao nhất chỉ 0,004–0,082 — model **không nghe ra** giọng hát, chứ không phải ngưỡng
+đặt sai. Dấu hiệu ngoài âm thanh cũng chỉ bắt được 2/27 ca.
+
+Nên thêm một thước đo khác hẳn: **cao độ giữ bao lâu** (hát giữ nốt, nói thì trượt liên tục).
+Đo trên 62 sound có nhãn: nhóm đáng loại giữ nốt 0,110 — nhóm đúng 0,034. Có tách thật, **nhưng
+kiểm chia đôi thì đổ** (+3 và −1), nên nó **chỉ làm ghi chú** *"giọng giữ nốt khá lâu — nghe lại
+xem có phải đang hát không"*, **không** lật kết quả. Ở mức ghi chú: nhắc đúng 8/23 ca đáng loại,
+nhắc oan 3/39 ca đúng.
+
+Cũng bịt một lỗ thật: **luật nhận diện phim trước đây chỉ bắt chữ Latin** — sound trích Toy Story 5
+gắn `#电影玩具总动员5` (电影 = phim) trượt sạch. Nay có thêm chữ Hoa, Nhật, Hàn, Ả Rập, Nga, Hindi,
+Thái; đo trên 139 sound thì bắt oan 0 ca.
+
+## 0.11.4 — 2026-08-29
+
+**Bấm vào dòng là ra video ngay — bỏ player nhúng của TikTok, app tự tải tự phát**
+
+*"Có vài link click vào lại không hiện ra video, phải đóng xong bật lại vài lần thì nó mới hiện."*
+
+Đo thật (5 sound, mỗi sound chờ 8 giây): khung nhúng của TikTok ra video ngay lần nạp đầu
+**0/5**; tải lại chính video đó thì 3/5 ra, mà ra rất nhanh (0,7–1,4 giây). Trên app thật, kể cả
+sau khi cho nó tự tải lại, vẫn chỉ **2/6** dòng.
+
+Lý do: khung nhúng **tự đi lấy trang của TikTok, không đi qua cơ chế thử-lại/phanh** của app —
+hễ TikTok chặn là chịu chết, trong khi chính app hỏi cùng lúc đó thì vẫn lấy được.
+
+Nay **main tự tải file video** về (có thử lại, có phanh), panel phát bằng thẻ `<video>` của chính
+app. Khung nhúng chỉ còn là phương án dự phòng, và nếu cả hai đều không được thì app **nói thẳng**
+kèm nút *Thử lại* / *Mở trên TikTok* thay vì để bạn ngồi nhìn khung đen.
+
+**Đo lại trên app thật: 4–5/6 dòng ra video, phần lớn trong 1,5 giây.**
+
+Ba lỗi tìm ra trong lúc làm:
+
+- Tải **thiếu** file thì video phát ra **tiếng mà không có hình** (nhận 782.817 byte trong khi
+  file thật 7.124.913). Nay đối chiếu `Content-Length`; bản nào không kèm `Content-Length` thì
+  chốt bằng chính `videoWidth` — không có hình là **đổi nguồn khác**.
+- Thuộc tính `autoplay` làm Chromium chạy video nhưng **tự tắt tiếng**. Bỏ nó, tự gọi phát.
+- Chromium còn tắt tiếng lại sau vài giây, ở tầng dưới JavaScript. Có chốt bật lại — giới hạn
+  5 lần trong 30 giây đầu, và **nhường ngay** khi bạn tự bấm nút tắt tiếng.
+
 ## 0.11.3 — 2026-08-29
 
 **Hết cảnh báo nhầm "sound đã xoá" khi TikTok chỉ đang chặn tạm**

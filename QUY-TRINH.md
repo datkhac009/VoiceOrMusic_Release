@@ -447,6 +447,125 @@ chặn. Nay dùng sổ ghi riêng (`ghi`) tạo mới trong `resolveToAudio`.
 **thay** chứ không **thêm** — không thì một sound hiện hai dòng (một dòng lỗi cũ, một dòng kết
 quả mới).
 
+## 7j. Bấm vào dòng phải ra video NGAY — bỏ player nhúng, tự tải tự phát
+
+Người dùng: *"có vài link click vào lại không hiện ra video, phải đóng xong bật lại vài lần thì
+nó mới hiện"*. Đo thật (5 sound, mỗi sound chờ 8 giây):
+
+| Cách | Kết quả |
+|---|---|
+| Khung nhúng, lần nạp **đầu** | **0/5** ra video |
+| Tải lại **chính** video đó | 3/5 — và ra rất nhanh, **0,7–1,4 giây** |
+| Đổi sang video **khác** cùng sound | thêm 1/5 |
+| Thử hết 5 video | vẫn 1/5 chịu |
+
+Trên app thật, kể cả sau khi đã cho nó **tự tải lại**, vẫn chỉ **2/6** dòng ra video.
+
+**Vì sao khung nhúng hay hỏng:** nó **tự đi lấy trang của TikTok, không đi qua cơ chế thử-lại /
+phanh** của app (mục 7i). Hễ TikTok chặn là nó chịu chết — trong khi chính app hỏi cùng lúc đó
+thì vẫn lấy được vì có thử lại.
+
+**Một giả thuyết đã LOẠI:** không phải do "chưa có phiên/cookie TikTok". Hâm nóng một lượt rồi
+đo lại vẫn 0/3, mà cookie tiktok thì đã có sẵn 7 cái từ đầu.
+
+**Cách làm mới:** main **tự tải file video** về (đi qua thử-lại/phanh), panel phát bằng thẻ
+`<video>` của chính app. Khung nhúng chỉ còn là **phương án dự phòng**.
+
+Kết quả đo lại trên app thật: **4–5/6 dòng**, phần lớn ra trong **1,5 giây**.
+
+### Ba cái bẫy đã sập khi làm cái này
+
+1. **Trang nhúng không có khoá `playAddr`.** Nó để thẳng địa chỉ trong thẻ:
+   `<video data-testid="play-video-blur" src="https://v58.tiktokcdn.com/video/tos/...">`.
+   Tìm `playAddr` thì ra 0 kết quả trong khi trang có 4 thẻ như vậy.
+2. **Tải thiếu thì phát ra TIẾNG mà KHÔNG CÓ HÌNH.** Nhận về 782.817 byte trong khi file thật
+   7.124.913 byte → `videoWidth = 0`, người dùng nhìn khung đen mà vẫn nghe thấy tiếng. Rất dễ
+   đổ cho "TikTok chặn". Nay đối chiếu `Content-Length`. Nhưng có bản **không kèm
+   `Content-Length`** nên vẫn lọt — nên chốt bằng thước đo đúng thứ người dùng cần: nạp xong
+   metadata mà `videoWidth === 0` thì **đổi nguồn khác**.
+3. **Chromium tự tắt tiếng ở tầng dưới JavaScript.** Bắt tận tay bằng bẫy đặt trên thuộc tính
+   `.muted`: sự kiện `volumechange` báo `muted=true` mà **không có ai gán** — tức không phải mã
+   của app. Hai chỗ liên quan: dùng thuộc tính `autoplay` thì Chromium chạy nhưng tắt tiếng
+   (nên bỏ, tự gọi `play()`), và nó còn tắt lại sau vài giây (nên có chốt bật lại, **giới hạn 5
+   lần trong 30 giây đầu**, và **nhường ngay** khi người dùng tự bấm vào video).
+
+⚠ Đo cái này rất dễ tự đánh lừa. Ba lần tôi đã sập:
+- Gọi `batTieng()` từ ngoài để kiểm tra → **huỷ luôn** vòng chờ của chính panel (nó tăng số phiên).
+- Hàm nối vào khung thử tới 30 giây khi chưa có khung → làm phép đo chậm gấp mấy lần thực tế.
+- Biểu thức `replace(/s+/g, ' ')` mất dấu gạch chéo → **xoá mọi chữ "s"** trong bản in, biến
+  `src=` thành ` rc=` và suýt làm tôi kết luận sai về HTML.
+
+## 7k. Đo mức đúng/sai THẬT trên nhãn tay của người dùng — và vì sao chưa chữa được
+
+Người dùng: *"tools check giọng Nhạc, Hát, voice người nói vẫn chưa chuẩn, đa số tôi đều phải
+check lại hết"*. Hỏi lý do loại thì trả lời: *"vì nó là giọng nói hát, hoặc là giọng nói ở trong
+một bộ phim"*.
+
+### Nguồn nhãn: kho của chính app
+
+Không cần xin dữ liệu — app đã ghi sẵn:
+`%APPDATA%/VoiceOrMusic/quyet-dinh-tay.json` (**147** quyết định tay) và `kho-hoc.json` (**34**
+lần người dùng chấm ngược ý máy, kèm vân tay số liệu).
+
+⚠ Đo bằng kho này phải **bỏ qua quyết định tay đã lưu**, không thì máy chỉ chép lại nhãn của
+người dùng và ra 100% giả. Lần đầu tôi quên, kết quả về 0/0 hết.
+
+### Con số gốc (139 sound tính được)
+
+| | |
+|---|---|
+| bạn LẤY – máy LẤY (đúng) | 87 |
+| bạn LOẠI – máy LOẠI (đúng) | 22 |
+| **bạn LOẠI – máy LẤY (nhận quá tay)** | **23** |
+| bạn LẤY – máy LOẠI (bỏ sót) | 7 |
+| | **đúng 78%** |
+
+### Vì sao không chữa được bằng ngưỡng
+
+Trên 27 ca nhận quá tay (lấy từ `kho-hoc`), YAMNet chấm **`Speech` 0,63–0,95**, còn điểm hát cao
+nhất chỉ **0,004–0,082**. Bộ nhãn hát đã có đủ 12 loại (`Singing`, `Rapping`, `Choir`, `Chant`,
+`Humming`…) và ngưỡng đã hạ tới 0,02 — **không còn gì để vặn**. Model thật sự không nghe ra.
+
+Dấu hiệu ngoài âm thanh cũng không cứu được: trong 27 ca đó chỉ **2** có tích xanh, **0** có cờ
+bản quyền, **0** dính luật phim.
+
+Và sai **cả hai chiều**: 4/7 ca bỏ sót là máy chấm *"Hát"* mà người dùng bảo lấy.
+
+### Thước đo CAO ĐỘ — đo được, nhưng KHÔNG dùng để loại
+
+Vì model không nghe ra, tôi đo bằng đại lượng khác: **cao độ giữ bao lâu** (`src/caodo.cjs`) —
+hát giữ từng nốt, nói thì cao độ trượt liên tục. Trên 62 sound có nhãn tay:
+
+| | nhóm máy nhận quá tay | nhóm máy nhận đúng |
+|---|---|---|
+| giữ nốt (trung vị) | **0,110** | **0,034** |
+| nốt dài nhất (trung vị) | 400 ms | 260 ms |
+
+Có tách. Nhưng **kiểm chia đôi thì đổ**: chỉnh ngưỡng trên một nửa rồi chấm nửa kia cho lợi ròng
+**+3** và **−1** — tức là không tổng quát được. Con số "+7" tìm được lúc đầu là do **dò ngưỡng
+trên chính bộ dùng để chấm**.
+
+Nên nó **chỉ được dùng làm ghi chú** *"giọng giữ nốt khá lâu — nghe lại xem có phải đang hát
+không"*, chứ không lật kết quả. Ở mức ghi chú: nhắc đúng 8/23 ca đáng loại, nhắc oan 3/39 ca đúng.
+
+⚠ Đây là chỗ dễ tự lừa nhất trong cả dự án: một luật nhìn có vẻ ăn +7 điểm mà thật ra là số đo
+của chính nó. Bất kỳ ngưỡng mới nào sau này **phải qua kiểm chia đôi** trước khi cho lật kết quả.
+
+### Đã sửa được: luật phim chỉ bắt chữ Latin
+
+Sound trích phim hoạt hình Toy Story 5 gắn `#电影玩具总动员5` (电影 = phim) — danh sách cũ toàn chữ
+Latin nên trượt sạch. Nay có thêm chữ Hoa, Nhật, Hàn, Ả Rập, Nga, Hindi, Thái. Đo trên 139 sound:
+bắt thêm 0 ca **và bắt oan 0 ca** — chưa giúp ở bộ này nhưng bịt một lỗ thật.
+(Bỏ `作品` vì nghĩa quá rộng, dễ bắt nhầm.)
+
+### Muốn đúng hơn nữa thì cần gì
+
+139 nhãn là ít, và ranh giới nói/hát ở đây là **thật sự khó** — chính người dùng cũng phải nghe
+lại mới quyết được. Hai đường còn lại, cả hai đều cần đo trước khi làm:
+- **Thêm nhãn**: mỗi lần bấm LẤY/LOẠI là app tự ghi, nên dùng app càng nhiều thì bộ đo càng chắc.
+- **Model chuyên tách hát/nói** (không phải YAMNet đa dụng) — nặng hơn hẳn, và phải qua kiểm
+  chia đôi như trên.
+
 ## 8. Còn thiếu / chưa chắc
 
 - **Chưa hiệu chỉnh trên dữ liệu thật của người dùng.** Ngưỡng hát mới chỉ chỉnh trên 2 bản hát

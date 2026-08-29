@@ -700,6 +700,25 @@ function ghiChuKhongChac(kq, meta = {}, opt = {}) {
   const sp = s.speechFrac || 0, mu = s.musicFrac || 0, si = s.singFrac || 0;
   const cs = s.usableWindows || 0, cw = s.singWindows || 0, smax = s.singMax || 0;
 
+  // ── GIU NOT CAO: co the la HAT ma model khong nghe ra ─────────────────────────────
+  // Nguoi dung bao "no la giong noi hat ma bi cham la Giong noi". Do that (2026-08-29):
+  // YAMNet cham 'Speech' 0,63-0,95 tren dung nhung sound do, diem hat cao nhat chi 0,004-
+  // 0,082 — khong phai chinh nguong duoc, model that su khong nghe ra.
+  //
+  // Nen do them bang CAO DO (src/caodo.cjs): hat giu tung not, noi thi cao do truot lien tuc.
+  // Do tren 62 sound co nhan tay cua nguoi dung:
+  //     nhom may nhan qua tay (nguoi dung LOAI): giu not giua 0,110
+  //     nhom may nhan dung   (nguoi dung LAY) : giu not giua 0,034
+  // Co tach, nhung YEU. ⚠ CHI GHI CHU, KHONG DUNG DE LOAI — da kiem chia doi: chinh nguong
+  // tren mot nua roi cham nua kia cho loi rong +3 va -1, tuc la KHONG TONG QUAT DUOC. Bien
+  // no thanh luat loai la dua tren mot con so dep gia (do tu chinh tren bo dung de cham).
+  // O muc ghi chu nay: nhac 8/23 ca dang le phai loai, nhac oan 3/39 ca dung.
+  const gn = (s.caoDo && s.caoDo.tiLeGiuNot) || 0;
+  if (gn >= 0.15 && (kq.label === 'voice' || kq.label === 'voice_bgm' || kq.label === 'voice_bgm_loi')) {
+    g.push(`giọng giữ nốt khá lâu (${Math.round(gn * 100)}% thời lượng có cao độ, `
+      + `nốt dài nhất ${Math.round((s.caoDo.notDaiNhatMs || 0))}ms) — nghe lại xem có phải đang hát không`);
+  }
+
   // Nhan "giong noi + nhac nen CO LOI" thi LUON phai kem loi nhac kiem ban quyen — day
   // khong phai "may khong chac", ma la "may khong the biet": no chi doc duoc co dau
   // original-sound hay khong, chu khong nhan ra ban nhac nao dang phat.

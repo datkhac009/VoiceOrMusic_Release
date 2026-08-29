@@ -19,7 +19,7 @@ const fs = require('fs');
 const {
   parseInput, extractSoundMeta, extractAuthorInfos,
   extractHashtags, extractBio, extractCaption, nhanDangPhim, extractAnhKhungHinh,
-  embedMusicUrl, embedVideoUrl, extractVideoIds, extractMusicInfos,
+  embedMusicUrl, embedVideoUrl, extractVideoIds, extractMusicInfos, extractVideoSrcs,
 } = require('./src/soundlink.cjs');
 const { aggregate, quyetDinhCuoi, chamHaiLuot, dacTrung, timCaDaSua } = require('./src/classify.cjs');
 const { parseArgv, userArgv } = require('./src/cli-args.cjs');
@@ -174,6 +174,20 @@ function dauHieuPhim(html, laChuSound) {
  * bao "xong" (loi im lang, kieu nguy hiem nhat).
  * @returns {{playUrl:string, meta:object, via:string}|null}
  */
+/**
+ * Tai ve co DU file khong? So byte nhan duoc phai bang Content-Length.
+ * Do that (2026-08-29): TikTok cat giua chung kha thuong xuyen — file nhac thieu thi nga o
+ * buoc giai ma, file video thieu thi phat duoc tieng ma KHONG CO HINH (videoWidth = 0).
+ * Ca hai deu de bi doc nham thanh "TikTok chan" trong khi loi la minh khong kiem.
+ */
+function du(r, tran) {
+  if (!r || r.status < 200 || r.status >= 300 || !r.body.length) return false;
+  const cl = Number(r.headers?.['content-length']);
+  if (!Number.isFinite(cl) || cl <= 0) return true;      // may chu khong noi -> tin
+  if (r.body.length >= tran) return true;                // minh CO Y cat o tran
+  return r.body.length >= cl;
+}
+
 // ── TIKTOK CHAN TAM: PHANH CHUNG + THU LAI ──────────────────────────────────────────
 //
 // Do that (2026-08-29) tren mot me 51 link cua nguoi dung: 20 link bao "sound da xoa" trong
@@ -554,6 +568,9 @@ async function runBatch(links, opt, hooks = {}) {
           // Gop diem thanh nhan o MAIN (khong o renderer) de luat quyet dinh nam trong
           // module thuan classify.cjs — test duoc bang node, khong can Electron.
           const agg = aggregate(res.windows);
+          // So do CAO DO nam TRONG stats de luat ghi chu doc duoc (va di kem ket qua de con
+          // doi chieu voi nhan tay cua nguoi dung khi hieu chinh).
+          if (res.caoDo) { agg.caoDo = res.caoDo; if (agg.stats) agg.stats.caoDo = res.caoDo; }
           // "Phan tich 2 lan": cham rieng nua dau / nua sau roi doi chieu. Khong ton them
           // lan tai nao va cung khong chay lai model — chi gop lai theo hai tap con.
           agg.haiLuot = chamHaiLuot(res.windows);
@@ -866,6 +883,12 @@ app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
+// Cho phep tu phat CO TIENG. Video trong panel la file app TU TAI ve va phat bang the <video>
+// cua chinh minh, nhung cu bam chuot cua nguoi dung da "het han" sau vai giay cho tai xong,
+// nen Chromium chan play() co tieng. Bat co nay de no khong chan.
+// ⚠ Co nay KHONG giup gi cho khung nhung cua TikTok — da do rieng: bat hay tat deu y het,
+// player cua ho van khong nap. No chi co tac dung cho the <video> cua chinh app.
+
 const USAGE = () => `VoiceOrMusic ${PHIEN_BAN()}
 
 Cach dung:
@@ -1046,14 +1069,80 @@ function moGiaoDien(opt) {
   // Moi lan mo dong khac lai tang so phien -> vong doi cua dong cu tu tat, khong bat tieng
   // nham cho video cua dong moi.
   let phienTieng = 0;
-  ipcMain.handle('ui:bat-tieng', async (_e, { dung = false } = {}) => {
+  //
+  // `giay` = cho toi da bao lau cho MOT lan nap khung. Renderer goi nhieu lan: moi lan no tu
+  // tai lai khung (hoac doi sang video khac cua cung sound) roi hoi lai o day.
+  //
+  // ⚠ Do that (2026-08-29) tren 5 sound: 0/5 ra video ngay lan nap DAU, nhung 3/5 chi can
+  // TAI LAI chinh video do la ra — va ra rat nhanh (0,7-1,4s). 1/5 phai doi sang video khac
+  // cua cung sound. Da loai gia thuyet "chua co phien/cookie": ham nong truoc roi van 0/3,
+  // ma cookie tiktok thi da co san tu dau. Ket luan: khung nhung cua TikTok chap chon, cach
+  // chua dung la TU TAI LAI THAY NGUOI DUNG chu khong phai cho lau hon.
+  // ── TAI THANG VIDEO VE CHO PANEL TU PHAT ────────────────────────────────────────
+  //
+  // Vi sao khong dung khung nhung cua TikTok nua: no TU di lay trang cua TikTok, KHONG di qua
+  // co che thu-lai/phanh cua app — nen he TikTok chan (429/503) la no chiu chet, dung canh
+  // nguoi dung ke "phai dong xong bat lai vai lan thi moi hien ra video".
+  //
+  // Do that (2026-08-29), moi sound cho 8 giay, khung nhung:
+  //     ra video ngay lan nap dau ....... 0/5
+  //     tai lai chinh video do .......... 3/5   (ra rat nhanh: 0,7-1,4 giay)
+  //     phai doi sang video khac ........ 1/5
+  //     thu het 5 video van khong ra .... 1/5
+  // Va tren app that, co vong tu tai lai roi, van chi 2/6 dong ra video.
+  //
+  // Con di THANG file video thi: rut duoc dia chi 3/3 trang doc duoc, tai ve 206 video/mp4
+  // het 0,1-0,8 giay cho 1-8 MB. Nen huong nay vua chac hon vua nhanh hon.
+  //
+  // Da LOAI mot gia thuyet truoc do: khong phai vi "chua co phien/cookie tiktok" — ham nong
+  // truoc roi do lai van 0/3, ma cookie tiktok da co san 7 cai tu dau.
+  const TRAN_VIDEO = 14 * 1024 * 1024;   // video TikTok thuong 1-8 MB
+  let phienVideo = 0;
+  //
+  // `boQua` = nhung dia chi da tai ve roi ma KHONG RA HINH — renderer bao lai de doi nguon.
+  // ⚠ Vi sao phai co: co ban tai ve 206 video/mp4, KHONG kem content-length (nen khong biet
+  // du hay thieu), va phat ra thi videoWidth = 0 — nghe thay tieng ma khung den thui. Chi co
+  // renderer moi biet dieu do, vi phai nap xong metadata moi doc duoc videoWidth.
+  ipcMain.handle('ui:tai-video', async (_e, { videoIds = [], boQua = [] } = {}) => {
+    const phien = ++phienVideo;
+    const bo = new Set(boQua || []);
+    const ds = [...new Set(videoIds.filter(Boolean))].slice(0, 4);
+    for (const vid of ds) {
+      if (phien !== phienVideo) return { ok: false, huy: true };
+      const rh = await httpGetBenBi(embedVideoUrl(vid), {
+        maxBytes: 2 * 1024 * 1024,
+        headers: { Accept: 'text/html,application/xhtml+xml', Referer: 'https://www.tiktok.com/' },
+      });
+      const dc = extractVideoSrcs(rh.body.toString('utf8'));
+      for (const url of dc.slice(0, 3)) {
+        if (phien !== phienVideo) return { ok: false, huy: true };
+        if (bo.has(url)) continue;
+        // ⚠ PHAI co Referer tiktok.com: khong thi CDN tra 403 (do that).
+        const rv = await httpGetBenBi(url, {
+          maxBytes: TRAN_VIDEO,
+          timeoutMs: 45000,
+          headers: { Referer: 'https://www.tiktok.com/', Accept: '*/*', Range: 'bytes=0-' },
+        }, 2);
+        const kieu = String(rv.headers?.['content-type'] || '');
+        // ⚠ PHAI kiem DU FILE. Do that: nhan ve 782.817 byte trong khi file that 7.124.913 —
+        // mp4 cut duoi thi phat duoc TIENG nhung khong co HINH (videoWidth = 0), tuc la
+        // nguoi dung nhin thay khung den ma van nghe thay tieng. Rat de tuong la "TikTok
+        // chan", thuc ra la minh tu cat mat file.
+        const day = du(rv, TRAN_VIDEO);
+        dbg(`tai-video ${vid}: ma ${rv.status}, ${rv.body.length}/${rv.headers?.['content-length'] || '?'} byte, ${kieu}, ${day ? 'DU' : 'THIEU'}`);
+        if (rv.status >= 200 && rv.status < 300 && rv.body.length > 20000 && /video\//.test(kieu) && day) {
+          return { ok: true, videoId: vid, kieu, url, bytes: rv.body };
+        }
+      }
+    }
+    return { ok: false, loi: ds.length ? 'khong tai duoc video nao' : 'khong co videoId' };
+  });
+
+  ipcMain.handle('ui:bat-tieng', async (_e, { dung = false, giay = 8 } = {}) => {
     const phien = ++phienTieng;
     if (dung) return false;
-    // Player nap xong luc nao khong biet truoc nen phai cho — nhung cho co han.
-    // ⚠ Tran nay tung la 16 nhip (~11s) va DO THAY la thieu: luc TikTok chan tam thi khung
-    // nhung nap lau hon han, dong dau thuong khong kip -> bam vao ma khong co tieng. Nay 45
-    // nhip (~31s). Cho lau khong ton gi: hem chay duoc la thoat ngay, dong panel cung thoat.
-    for (let i = 0; i < 45; i++) {
+    const soNhip = Math.max(2, Math.round((giay * 1000) / 700));
+    for (let i = 0; i < soNhip; i++) {
       if (win.isDestroyed() || phien !== phienTieng) return false;
       const f = win.webContents.mainFrame?.framesInSubtree
         ?.find(x => /tiktok\.com\/embed/.test(x.url || ''));

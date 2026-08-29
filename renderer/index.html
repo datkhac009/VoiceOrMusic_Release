@@ -361,6 +361,21 @@ footer {
            text-overflow: ellipsis; white-space: nowrap; }
 .p-than { flex: 1; overflow: auto; padding: 14px 16px; }
 .p-than iframe { width: 100%; height: 560px; border: 0; border-radius: var(--bo-goc); background: #000; }
+.p-than video { width: 100%; height: 560px; border-radius: var(--bo-goc); background: #000; object-fit: contain; }
+
+/* Bao dang tu tai lai khung xem. Khung nhung cua TikTok chap chon (do duoc: 0/5 ra video ngay
+   lan nap dau), app tu nap lai thay nguoi dung — nhung phai NOI ra, khong thi nhin y het treo. */
+#pKhung { position: relative; }
+#pKhung .dang-mo.giua {
+  position: static; display: flex; align-items: center; justify-content: center;
+  height: 560px; background: #000; border-radius: var(--bo-goc);
+}
+#pKhung .dang-mo {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 7px 10px; font-size: 12px; color: var(--chu-2);
+  background: rgba(6, 8, 12, .82); border-radius: 0 0 var(--bo-goc) var(--bo-goc);
+}
+#pKhung .trong button { margin: 8px 4px 0; padding: 6px 12px; font-size: 12px; }
 .tt-hang { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
 .the { background: var(--nen-2); border: 1px solid var(--vien); border-radius: 7px;
        padding: 3px 9px; font-size: 11px; color: var(--chu-2); }

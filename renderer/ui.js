@@ -437,18 +437,165 @@ function moPanel(i) {
 
   // Nhung THANG player cua TikTok. Trang /embed/v2/ khong dat X-Frame-Options va CSP khong
   // co frame-ancestors nen nhung duoc — da kiem header truoc khi lam.
+  // Danh sach video cua CUNG sound do — de doi sang cai khac khi cai dau khong nap duoc.
+  // `videoIds` do main gui kem (toi da 6); thieu thi it ra con mot cai.
+  const dsVid = (r.meta?.videoIds || []).filter(Boolean);
   const vid = r.meta?.videoId;
-  $('pKhung').innerHTML = vid
-    ? `<iframe src="https://www.tiktok.com/embed/v2/${encodeURIComponent(vid)}"
-         allow="autoplay; encrypted-media; fullscreen" referrerpolicy="strict-origin"></iframe>`
-    : `<div class="trong">Không có video nào dùng sound này để xem.<br>
+  const dsThu = [...new Set([vid, ...dsVid].filter(Boolean))];
+  if (!dsThu.length) {
+    $('pKhung').innerHTML = `<div class="trong">Không có video nào dùng sound này để xem.<br>
         <span class="lnk">${esc(r.soundUrl || r.input)}</span></div>`;
-  if (vid) window.vom.batTieng();     // bam mot lan la nghe duoc luon — xem ghi chu ben main.js
+    return;
+  }
+  moVideo(dsThu, r);
+}
+
+/**
+ * BAM MOT LAN LA RA VIDEO — tu tai lai / doi video thay nguoi dung.
+ *
+ * ⚠ Do that (2026-08-29) tren 5 sound, moi sound cho 8 giay:
+ *     ra ngay lan nap dau ......... 0/5
+ *     TAI LAI chinh video do ...... 3/5  (va ra rat nhanh: 0,7-1,4 giay)
+ *     phai DOI sang video khac .... 1/5
+ *     thu het 5 video van khong ... 1/5
+ * Nen khung nhung cua TikTok chap chon that — dung cai canh nguoi dung ke: "phai dong xong
+ * bat lai vai lan thi no moi hien ra video". Cach chua la lam ho viec bat lai do.
+ *
+ * Da LOAI mot gia thuyet truoc khi lam: khong phai vi "chua co phien/cookie tiktok" — ham
+ * nong mot lan roi do lai van 0/3, ma cookie tiktok thi da co san 7 cai tu dau.
+ *
+ * Cung khong phai "cho lau hon la duoc": lan nap dau cho du 8 giay van hong, trong khi tai
+ * lai thi ra sau chua toi 1 giay. Cho lau chi lam nguoi dung ngoi nhin khung den lau hon.
+ */
+let phienVideo = 0;
+let urlVideoDangXem = '';
+
+/**
+ * BAM MOT LAN LA RA VIDEO.
+ *
+ * Duong chinh: MAIN tai thang file video ve, panel tu phat bang the <video>.
+ * Duong du phong: khung nhung cua TikTok (nhu truoc).
+ *
+ * ⚠ Vi sao doi duong chinh: khung nhung TU di lay trang cua TikTok, KHONG di qua co che
+ * thu-lai/phanh cua app — he TikTok chan (429/503) la no chiu chet. Do that (2026-08-29),
+ * moi sound cho 8 giay:
+ *     khung nhung ra video ngay lan dau ..... 0/5
+ *     tai lai chinh video do ................ 3/5
+ *     phai doi sang video khac .............. 1/5
+ *     thu het 5 video van khong ra .......... 1/5
+ * Va tren app that, du da co vong tu tai lai, van chi 2/6 dong ra video.
+ * Con di thang file video: rut duoc dia chi 3/3 trang doc duoc, tai 206 video/mp4 het
+ * 0,1-0,8 giay cho 1-8 MB.
+ *
+ * Da LOAI gia thuyet "chua co phien/cookie tiktok": ham nong truoc roi do lai van 0/3, ma
+ * cookie tiktok da co san 7 cai tu dau.
+ */
+async function moVideo(dsThu, r) {
+  const phien = ++phienVideo;
+  const khung = $('pKhung');
+  doiUrlVideo('');
+  khung.innerHTML = '<div class="dang-mo giua">Đang tải video…</div>';
+
+  // Nhung nguon tai ve duoc nhung KHONG RA HINH — bao main bo qua o luot sau.
+  const boQua = [];
+  for (let luot = 0; luot < 3; luot++) {
+    const kq = await window.vom.taiVideo({ videoIds: dsThu, boQua });
+    if (phien !== phienVideo || !$('panel').classList.contains('mo')) return;
+    if (!kq?.ok || !kq.bytes) break;
+
+    const url = URL.createObjectURL(new Blob([new Uint8Array(kq.bytes)], { type: kq.kieu || 'video/mp4' }));
+    doiUrlVideo(url);
+    // ⚠ KHONG dung thuoc tinh `autoplay`: do that thi Chromium tu chay nhung TU TAT TIENG —
+    // nguoi dung thay video chay ma cam nhu hen. Tu goi play() thi giu duoc tieng.
+    khung.innerHTML = `<video id="pVideo" src="${url}" controls playsinline></video>`;
+    const v = $('pVideo');
+    v.dataset.soByte = (kq.bytes?.byteLength ?? kq.bytes?.length ?? -1);
+
+    // Cho nap xong phan mo dau roi moi biet co HINH khong (videoWidth).
+    await new Promise((xong) => {
+      if (v.readyState >= 1) return xong();
+      v.addEventListener('loadedmetadata', xong, { once: true });
+      v.addEventListener('error', xong, { once: true });
+      setTimeout(xong, 6000);
+    });
+    if (phien !== phienVideo) return;
+
+    if (!v.videoWidth) {
+      // ⚠ Co ban tai ve 206 video/mp4 that nhung KHONG CO HINH (videoWidth = 0): nghe thay
+      // tieng ma khung den thui. Doi sang nguon khac thay vi de nguoi dung ngoi nhin khung den.
+      boQua.push(kq.url);
+      khung.innerHTML = '<div class="dang-mo giua">Bản này không có hình — đang đổi nguồn khác…</div>';
+      continue;
+    }
+
+    // ⚠ Chromium TU TAT TIENG video sau vai giay, o tang DUOI JavaScript. Da bat tan tay
+    // (2026-08-29): su kien volumechange bao muted=true trong khi bay dat tren thuoc tinh
+    // .muted KHONG he thay ai gan — tuc la khong phai ma cua app. Nen phai bat lai.
+    // Co gioi han: chi trong 30 giay dau va toi da 5 lan, va NHUONG NGAY khi nguoi dung tu
+    // dung den video (bam nut tat tieng cua ho phai co tac dung, khong duoc gianh lai).
+    let conGiu = 5;
+    let nguoiDungTuChinh = false;
+    const giuTieng = () => {
+      if (nguoiDungTuChinh || conGiu <= 0) return;
+      if (v.muted) conGiu--;
+      v.muted = false; v.volume = 1;
+    };
+    for (const sk of ['pointerdown', 'keydown']) v.addEventListener(sk, () => { nguoiDungTuChinh = true; });
+    v.addEventListener('playing', giuTieng);
+    v.addEventListener('volumechange', giuTieng);
+    setTimeout(() => { conGiu = 0; }, 30000);
+    giuTieng();
+    // ⚠ Cu bam cua nguoi dung da HET HAN sau vai giay cho tai xong, nen play() co tieng co
+    // the bi chan. Chan thi phat KHONG TIENG truoc — cai do luon duoc phep — roi bat tieng.
+    try {
+      await v.play();
+    } catch (e) {
+      v.dataset.loiPhat = e && e.name || String(e);
+      v.muted = true;
+      try { await v.play(); v.muted = false; } catch (e2) { v.dataset.loiPhat2 = e2 && e2.name || String(e2); }
+    }
+    setTimeout(giuTieng, 300);   // Chromium co the tat tieng ngay sau khi bat dau chay
+    return;
+  }
+
+  // Du phong: nhung player cua TikTok nhu truoc.
+  khungNhung(dsThu, r, phien);
+}
+
+/** Go dia chi Blob cu — khong go la moi lan mo mot video lai giu them vai MB trong bo nho. */
+function doiUrlVideo(moi) {
+  if (urlVideoDangXem) { try { URL.revokeObjectURL(urlVideoDangXem); } catch (_) {} }
+  urlVideoDangXem = moi;
+}
+
+/** Du phong: nhung khung cua TikTok, tu tai lai / doi video vai lan. */
+async function khungNhung(dsThu, r, phien) {
+  const khung = $('pKhung');
+  const LAN_MOI_VIDEO = 2, TONG_LAN = Math.min(6, dsThu.length * LAN_MOI_VIDEO);
+  for (let lan = 0; lan < TONG_LAN; lan++) {
+    if (phien !== phienVideo || !$('panel').classList.contains('mo')) return;
+    const vid = dsThu[Math.min(Math.floor(lan / LAN_MOI_VIDEO), dsThu.length - 1)];
+    // `?t=` de moi lan la mot dia chi khac — khong thi trinh duyet dung lai trang loi da nho.
+    khung.innerHTML =
+      `<iframe src="https://www.tiktok.com/embed/v2/${encodeURIComponent(vid)}?t=${lan}"
+         allow="autoplay; encrypted-media; fullscreen" referrerpolicy="strict-origin"></iframe>`
+      + `<div class="dang-mo">Không tải được video, đang mượn khung của TikTok (lần ${lan + 1})…</div>`;
+    if (await window.vom.batTieng({ giay: lan === 0 ? 6 : 5 })) return;
+  }
+  if (phien !== phienVideo) return;
+  khung.innerHTML = `<div class="trong">Không mở được video cho sound này
+      (đã thử ${dsThu.length} video, cả tải thẳng lẫn khung của TikTok).<br>
+      <button id="pThuLai">Thử lại</button>
+      <button id="pMoTikTok">Mở trên TikTok</button></div>`;
+  $('pThuLai').onclick = () => moVideo(dsThu, r);
+  $('pMoTikTok').onclick = () => window.vom.moNgoai(r.soundUrl || r.input);
 }
 
 function dongPanel() {
   $('panel').classList.remove('mo');
   $('manDem').classList.remove('mo');
+  phienVideo++;                        // huy vong tu tai lai khung dang chay do
+  doiUrlVideo('');                     // tra lai bo nho cua video vua xem
   window.vom.batTieng({ dung: true });  // tat vong cho bat tieng dang chay do
   $('pKhung').innerHTML = '';        // go iframe de video khong chay ngam
   dangXem = -1;

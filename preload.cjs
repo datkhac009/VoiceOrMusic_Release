@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld('vom', {
   // Goi { dung: true } de tat vong doi khi dong panel. Xem ghi chu ben main.js.
   batTieng: (tuyChon) => ipcRenderer.invoke('ui:bat-tieng', tuyChon),
 
+  // Tai thang file video ve de panel tu phat (khong qua khung nhung cua TikTok).
+  taiVideo: (t) => ipcRenderer.invoke('ui:tai-video', t),
+
   // Tinh lai "lay hay loai" cho CA DANH SACH khi nguoi dung bat/tat luat ban quyen — khong
   // phai chay lai model. Nho main tinh (main goi classify.cjs) de luat chi co MOT ban: chep
   // cong thuc sang ui.js thi hai ban som muon se lech nhau.

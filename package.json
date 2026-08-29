@@ -1,12 +1,12 @@
 {
   "name": "voice-or-music",
-  "version": "0.11.3",
+  "version": "0.11.5",
   "private": true,
   "description": "Loc sound TikTok theo giong nguoi noi (YAMNet)",
   "main": "main.js",
   "scripts": {
     "start": "set \"ELECTRON_RUN_AS_NODE=\" && electron .",
-    "test": "node test/cli-args.test.js && node test/soundlink.test.js && node test/classify.test.js && node test/updater.test.js",
+    "test": "node test/cli-args.test.js && node test/caodo.test.js && node test/soundlink.test.js && node test/classify.test.js && node test/updater.test.js",
     "build": "electron-builder --win portable --x64",
     "test:gui": "node test/gui-smoke.cjs"
   },
