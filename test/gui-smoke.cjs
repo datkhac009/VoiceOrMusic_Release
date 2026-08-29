@@ -32,6 +32,49 @@ const LOG = path.join(os.tmpdir(), `vom-gui-smoke-${process.pid}.log`);
 const DATA_DIR = path.join(os.tmpdir(), `vom-gui-smoke-data-${process.pid}`);
 
 const nghi = (ms) => new Promise(r => setTimeout(r, ms));
+
+/**
+ * Giet CA CAY tien trinh, khong phai moi tien trinh cha.
+ *
+ * ⚠ BAI HOC (2026-08-29) — mat ca tieng dong ho vi cho nay. Ban portable tu bung ra
+ * %TEMP%\<ngau nhien>\ roi chay tien trinh THAT o do; `child.kill()` chi giet cai VO khoi
+ * dong, con app that van song va VAN GIU cong 9455. Lan test sau `noiTrang()` nhin thay cong
+ * do dang mo nen noi vao BAN CU — doc ra bang rong ("Chua co ket qua") trong khi trang thai
+ * lai bao "Xong 5/5". Ket qua: 13 muc FAIL trong khi app hoan toan binh thuong, va chay lai
+ * bao nhieu lan cung the vi ban cu van con do.
+ *
+ * Dau hieu de nhan ra lan sau: `performance.now()` trong trang lon hon nhieu so voi thoi
+ * gian app vua mo -> dang doc nham mot ban da song tu truoc.
+ */
+function dietCay(pid) {
+  if (!pid) return;
+  try { require('child_process').execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'ignore' }); } catch (_) {}
+}
+
+/** Cong debug con ban ban cu khong? Neu con thi don, khong thi test sau doc nham ban cu. */
+async function donBanConSot() {
+  let song = false;
+  try { song = (await fetch(`http://127.0.0.1:${PORT}/json/version`)).ok; } catch (_) { song = false; }
+  if (!song) return true;
+  console.log(`   ! cong ${PORT} dang bi mot ban app cu chiem - don truoc khi chay`);
+  // CHI giet ban cua CHINH TEST NAY: phai co CA co cong debug LAN thu muc du lieu rieng cua
+  // test. Khong bao gio dung den app that cua nguoi dung.
+  const ps = `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like `
+    + `'*--remote-debugging-port=${PORT}*' -and $_.CommandLine -like '*vom-gui-smoke-data-*' } `
+    + `| ForEach-Object { $_.ProcessId }`;
+  try {
+    const ra = require('child_process').execFileSync(
+      'powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    for (const dong of ra.split(/\r?\n/)) {
+      const pid = Number(dong.trim());
+      if (pid) dietCay(pid);
+    }
+  } catch (_) {}
+  await nghi(1500);
+  try { return !(await fetch(`http://127.0.0.1:${PORT}/json/version`)).ok; } catch (_) { return true; }
+}
+
 let pass = 0, fail = 0;
 const check = (nhan, dung, phu = '') => {
   if (dung) { pass++; console.log(`   OK   ${nhan}`); }
@@ -71,6 +114,13 @@ async function noiTrang(re) {
 (async () => {
   const env = { ...process.env, VOM_LOG: LOG };
   delete env.ELECTRON_RUN_AS_NODE;   // sot lai la electron chay nhu node thuan -> khong co Chromium
+
+  // PHAI don truoc khi mo: neu cong debug con ban cu chiem thi test se noi vao BAN CU va bao
+  // hang loat FAIL gia. Xem ghi chu day du o dietCay().
+  if (!await donBanConSot()) {
+    console.log(`   FAIL cong ${PORT} van bi chiem boi tien trinh khong phai cua test — dung lai`);
+    process.exit(1);
+  }
   // ⚠ Co Chromium phai dat TRUOC duong dan app, khong thi Electron coi no la tham so cua ung dung.
   const app = spawn(EXE, [`--remote-debugging-port=${PORT}`, `--user-data-dir=${DATA_DIR}`, ...THAM_SO],
     { env, stdio: 'ignore' });
@@ -80,6 +130,7 @@ async function noiTrang(re) {
   const moKetNoi = [];
   const ketThuc = async (ma) => {
     for (const c of moKetNoi) { try { c.dong(); } catch (_) {} }
+    dietCay(app.pid);          // PHAI giet ca cay — xem ghi chu o dietCay()
     try { app.kill(); } catch (_) {}
     await nghi(300);
     try { fs.unlinkSync(LOG); } catch (_) {}
@@ -183,6 +234,17 @@ async function noiTrang(re) {
     const soDong = await c2.js(`document.querySelectorAll('#than tr').length`);
     const tungDong = JSON.parse(await c2.js(`JSON.stringify(ketQua.map(r => r.ok ? r.labelVi : ('LOI: ' + r.error)))`) || '[]');
     const loiJS = await c2.js(`JSON.stringify(window.__loi || [])`);
+
+    // ⚠ CHAN DOAN khi bang rong ma trang thai lai bao "Xong": in ra de biet dang doc NHAM
+    // trang nao, hay that su mat du lieu. (Da mat thoi gian vi thieu may dong nay.)
+    if (tungDong.length !== dung.length || soDong !== dung.length) {
+      let ds = [];
+      try { ds = (await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json()).filter(x => x.type === 'page'); } catch (_) {}
+      console.log(`   [chan doan] so trang khop: ${ds.length} -> ${JSON.stringify(ds.map(x => x.url.slice(-40)))}`);
+      console.log(`   [chan doan] typeof ketQua = ${await c2.js('typeof ketQua')}`);
+      console.log(`   [chan doan] #than dau: ${String(await c2.js("document.getElementById('than').innerHTML.slice(0,160)")).replace(/\s+/g, ' ')}`);
+      console.log(`   [chan doan] chi lay = ${await c2.js("document.getElementById('oChiLay').checked")}`);
+    }
 
     console.log(`   trangThai: ${tt}`);
     console.log(`   tung dong: ${JSON.stringify(tungDong)}`);
